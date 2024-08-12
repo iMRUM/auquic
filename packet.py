@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 import struct
 
 
@@ -34,10 +35,6 @@ class PacketHeader:
             key_phase=(first_byte >> 2) & 0x01,
             packet_number_length=first_byte & 0x03
         )
-
-
-from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -80,7 +77,7 @@ class Packet:
             packet_number = struct.unpack(packet_number_format, b'\x00' + data[start_index:start_index + 3])[0]
         else:
             packet_number = \
-            struct.unpack(packet_number_format, data[start_index:start_index + header.packet_number_length])[0]
+                struct.unpack(packet_number_format, data[start_index:start_index + header.packet_number_length])[0]
 
         # The rest is the payload
         payload = data[start_index + header.packet_number_length:]
