@@ -1,4 +1,10 @@
+import struct
 from typing import Optional
+
+TYPE_FIELD_STREAM = 0x08
+OFF_BIT = 0x04
+LEN_BIT = 0x02
+FIN_BIT = 0x01
 
 
 class RESET_STREAM:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-reset_stream-frames
@@ -35,25 +41,19 @@ class STOP_SENDING:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         return self._frame
 
 
-class STREAM:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-stream-frames
-    def __init__(self, stream_id: int, data, offset=0, length=0, is_off=False, is_len=False, is_fin=False,
-                 type=0b00001):
-        if (is_off):
-            type = type + 0x04
-        if (is_len):
-            type = type + 0x02
-        if (is_fin):
-            type = type + 0x01
-        _type_byte_representation = type.to_bytes(1, byteorder='big')
-        _stream_id_byte_representation = stream_id.to_bytes(8, byteorder='big')
-        _offset_byte_representation = offset.to_bytes(1, byteorder='big')
-        _length_byte_representation = length.to_bytes(1, byteorder='big')
-        self._frame_bytearray_representation = bytearray()
-        self._frame_bytearray_representation += _type_byte_representation
-        self._frame_bytearray_representation += _stream_id_byte_representation
-        self._frame_bytearray_representation += _error_code_byte_representation
-        self._frame = ''.join(format(byte, '08b') for byte in self._frame_bytearray_representation)
-
-    @property
-    def frame(self):
-        return self._frame
+def get_stream_frame(stream_id: int, data, offset=0, length=0, is_fin=False):
+    stream_type = TYPE_FIELD_STREAM
+    values = [stream_id]
+    if offset != 0:
+        stream_type = stream_type | OFF_BIT
+        values.append(offset)
+    if length != 0:
+        stream_type = stream_type | LEN_BIT
+        values.append(length)
+    if is_fin:
+        stream_type = stream_type | FIN_BIT
+    values.insert(0, stream_type)
+    values.append(data)
+    values_len = len(values) - 1
+    struct_format = f'>{values_len}I{8 - values_len}s'
+    return struct.pack(struct_format, values)

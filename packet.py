@@ -4,7 +4,7 @@ import struct
 
 
 @dataclass
-class PacketHeader:
+class PacketHeader:  # total 1 byte
     header_form: int  # 1 bit
     fixed_bit: int  # 1 bit
     spin_bit: int  # 1 bit
