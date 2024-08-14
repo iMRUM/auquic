@@ -98,8 +98,4 @@ class Packet:
             stream_id (int): Unique identifier for the stream.
             data (bytes): The data to be added as a frame.
         """
-        frame = {
-            'stream_id': stream_id,
-            'data': data
-        }
         self.payload.join(get_stream_frame(stream_id, data))

@@ -13,7 +13,7 @@ class Stream:
         """
         self.stream_id = stream_id
         self.initiated_by = initiated_by  # 'client' or 'server'
-        self.bidirectional = direction
+        self.direction = direction
         self.data = ""
         self.offset = 0
         self.lock = threading.Lock()
@@ -142,12 +142,13 @@ class StreamManager:
             stream.reset()
 
 
-class StreamSender:
+class StreamSender: # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
     def __init__(self, stream: Stream):
         self.stream = stream
 
     def write_data(self, data):
         self.stream.add_data(data)
+
 
 
 # Example usage

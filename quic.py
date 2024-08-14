@@ -1,4 +1,5 @@
 import threading
+import socket
 from packet import Packet
 from stream import Stream, StreamManager, StreamSender
 
