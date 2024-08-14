@@ -1,19 +1,20 @@
 import threading
 
+
 class Stream:
     def __init__(self, stream_id, initiated_by, bidirectional=True):
         """
         Initialize a Stream instance.
 
         Args:
-            stream_id (int): Unique identifier for the stream.
-            initiated_by (str): Indicates whether the stream was initiated by 'client' or 'server'.
-            bidirectional (bool): Indicates if the stream is bidirectional. Default is True.
+            stream_id (int): Unique identifier for the stream. 2MSB are 11, 62 usable bits, 8-bytes total.
+            initiated_by (str): Indicates whether the stream was initiated by client(0) or server(1).
+            bidirectional (bool): Indicates if the stream is bidirectional(0) or unidirectional(1)
         """
         self.stream_id = stream_id
         self.initiated_by = initiated_by  # 'client' or 'server'
         self.bidirectional = bidirectional
-        self.data = b""
+        self.data = ""
         self.offset = 0
         self.lock = threading.Lock()
 
@@ -59,6 +60,7 @@ class Stream:
         with self.lock:
             self.data = b""
             self.offset = 0
+
 
 class StreamManager:
     def __init__(self):
@@ -138,6 +140,7 @@ class StreamManager:
         stream = self.get_stream(stream_id)
         if stream:
             stream.reset()
+
 
 # Example usage
 if __name__ == "__main__":

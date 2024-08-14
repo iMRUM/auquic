@@ -56,4 +56,6 @@ def get_stream_frame(stream_id: int, data, offset=0, length=0, is_fin=False):
     values.append(data)
     values_len = len(values) - 1
     struct_format = f'>{values_len}I{8 - values_len}s'
+    # struct format is
+    # |00001XXX-4-byte-type|4-byte-StreamI|Optional-4-byte-Offset|Optional-4-byte-Length|Payload(data)
     return struct.pack(struct_format, values)
