@@ -2,23 +2,23 @@ import threading
 
 
 class Stream:
-    def __init__(self, stream_id, initiated_by, bidirectional=True):
+    def __init__(self, stream_id, initiated_by, direction):
         """
         Initialize a Stream instance.
 
         Args:
             stream_id (int): Unique identifier for the stream. 2MSB are 11, 62 usable bits, 8-bytes total.
-            initiated_by (str): Indicates whether the stream was initiated by client(0) or server(1).
-            bidirectional (bool): Indicates if the stream is bidirectional(0) or unidirectional(1)
+            initiated_by (int): Indicates whether the stream was initiated by client(0) or server(1).
+            direction (int): Indicates if the stream is bidirectional(0) or unidirectional(1)
         """
         self.stream_id = stream_id
         self.initiated_by = initiated_by  # 'client' or 'server'
-        self.bidirectional = bidirectional
+        self.bidirectional = direction
         self.data = ""
         self.offset = 0
         self.lock = threading.Lock()
 
-    def add_data(self, data):
+    def add_data(self, data):  # user-initiated
         """
         Add data to the stream.
 
@@ -28,7 +28,7 @@ class Stream:
         with self.lock:
             self.data += data
 
-    def get_chunk(self, size):
+    def get_chunk(self, size):  # quic-initiated, size is determined by size of packet/num of streams
         """
         Retrieve a chunk of data from the stream.
 
@@ -70,21 +70,21 @@ class StreamManager:
         self.streams = {}
         self.lock = threading.Lock()
 
-    def create_stream(self, stream_id, initiated_by, bidirectional=True):
+    def create_stream(self, stream_id, initiated_by, direction):
         """
         Create a new stream.
 
         Args:
             stream_id (int): Unique identifier for the stream.
-            initiated_by (str): Indicates whether the stream was initiated by 'client' or 'server'.
-            bidirectional (bool): Indicates if the stream is bidirectional. Default is True.
+            initiated_by (int): Indicates whether the stream was initiated by 'client' or 'server'.
+            direction (int): Indicates if the stream is bidirectional. Default is True.
 
         Returns:
             Stream: The created stream instance.
         """
         with self.lock:
             if stream_id not in self.streams:
-                self.streams[stream_id] = Stream(stream_id, initiated_by, bidirectional)
+                self.streams[stream_id] = Stream(stream_id, initiated_by, direction)
             return self.streams[stream_id]
 
     def get_stream(self, stream_id):
@@ -140,6 +140,14 @@ class StreamManager:
         stream = self.get_stream(stream_id)
         if stream:
             stream.reset()
+
+
+class StreamSender:
+    def __init__(self, stream: Stream):
+        self.stream = stream
+
+    def write_data(self, data):
+        self.stream.add_data(data)
 
 
 # Example usage

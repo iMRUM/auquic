@@ -1,16 +1,17 @@
 from dataclasses import dataclass
 from typing import Optional
 import struct
+from frame import get_stream_frame
 
 
 @dataclass
 class PacketHeader:  # total 1 byte
-    header_form: int  # 1 bit
-    fixed_bit: int  # 1 bit
-    spin_bit: int  # 1 bit
-    reserved_bits: int  # 2 bits
-    key_phase: int  # 1 bit
-    packet_number_length: int  # 2 bits
+    header_form = 0  # 1 bit
+    fixed_bit = 1  # 1 bit
+    spin_bit = 0  # 1 bit
+    reserved_bits = 0  # 2 bits
+    key_phase = 0  # 1 bit
+    packet_number_length: int  # 2 bits, one less than the length of the Packet Number field in bytes
 
     def pack(self) -> bytes:
         # Pack these into a single byte
@@ -22,7 +23,7 @@ class PacketHeader:  # total 1 byte
                 (self.key_phase << 2) |
                 (self.packet_number_length)
         )
-        return struct.pack("B", first_byte)  # "B" is for a single unsigned byte
+        return struct.pack("B", first_byte)  # "B" is for a single unsigned char (1-byte)
 
     @staticmethod
     def unpack(data: bytes):
@@ -41,7 +42,7 @@ class PacketHeader:  # total 1 byte
 class Packet:
     header: PacketHeader
     destination_connection_id: int  # Variable length (let's assume 8 bytes in this example)
-    packet_number: int  # Variable length (e.g., 2 bytes here)
+    packet_number: int  # Variable length
     payload: bytes  # Payload (variable length)
 
     def pack(self) -> bytes:
@@ -53,8 +54,8 @@ class Packet:
                                            self.destination_connection_id)  # ">Q" is for 8-byte unsigned integer in big-endian
 
         # Pack the Packet Number based on its length
-        packet_number_format = {1: "B", 2: ">H", 3: ">I", 4: ">I"}[self.header.packet_number_length]
-        if self.header.packet_number_length == 3:
+        packet_number_format = {1: "B", 2: ">H", 3: ">I", 4: ">I"}[self.header.packet_number_length + 1]
+        if self.header.packet_number_length == 3: # there's no 3-byte format, however, the packet number requires 3bytes only, hence byte[0] can be omitted.
             packet_number_bytes = struct.pack(packet_number_format, self.packet_number)[1:]
         else:
             packet_number_bytes = struct.pack(packet_number_format, self.packet_number)
@@ -101,4 +102,4 @@ class Packet:
             'stream_id': stream_id,
             'data': data
         }
-        self.frames.append(frame)
+        self.payload.join(get_stream_frame(stream_id, data))
