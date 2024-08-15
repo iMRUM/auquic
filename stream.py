@@ -149,6 +149,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         self.send_offset = 0
         self.send_buffer = b""
         self.fin_sent = False
+        self.is_ready = True
         self.lock = threading.Lock()
 
     def write_data(self, data: bytes):
@@ -172,8 +173,39 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
                         data=self.send_buffer[self.send_offset:]))  # last frame is the rest of the buffer with FIN bit
         return stream_frames
 
-    def send_fin(self):
-        fin_sent = True
+    def sent_fin(self):
+        self.fin_sent = True
+        self.is_ready = False
+
+
+class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
+    def __init__(self, stream_id: int):
+        self.stream_id = stream_id
+        self.curr_offset = 0
+        self.recv_buffer_dict = {}  # such that K = offset, V = data
+        self.recv_buffer = b""
+        self.fin_recvd = False
+        self.is_ready = True
+        self.lock = threading.Lock()
+
+    def stream_frame_recvd(self, frame: StreamFrame):
+        if not self.recv_buffer_dict[frame.offset]:  # this frame wasn't already received
+            self.recv_buffer_dict[frame.offset] = frame.data
+            self.curr_offset += len(frame.data)
+            self.recv_buffer_dict = dict(sorted(self.recv_buffer_dict.items()))  # sort existing frames by their offset
+            if frame.fin:
+                self._fin_recvd(frame)
+
+    def _fin_recvd(self, frame: StreamFrame):
+        self.fin_recvd = True
+        if self.curr_offset == frame.offset + len(frame.data):  # it is indeed the last frame
+            self.is_ready = False
+            self._convert_dict_to_buffer()
+
+    def _convert_dict_to_buffer(self):  # the dict is already sorted by offsets so just add the tandem
+        for data in self.recv_buffer_dict.values():
+            with self.lock:
+                self.recv_buffer += data
 
 
 # Example usage
