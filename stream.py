@@ -1,4 +1,5 @@
 import threading
+from frame import StreamFrame
 
 
 class Stream:
@@ -14,11 +15,11 @@ class Stream:
         self.stream_id = stream_id
         self.initiated_by = initiated_by  # 'client' or 'server'
         self.direction = direction
-        self.data = ""
+        self.data = b""
         self.offset = 0
         self.lock = threading.Lock()
 
-    def add_data(self, data):  # user-initiated
+    def add_data(self, data: bytes):  # user-initiated
         """
         Add data to the stream.
 
@@ -142,13 +143,37 @@ class StreamManager:
             stream.reset()
 
 
-class StreamSender: # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
-    def __init__(self, stream: Stream):
-        self.stream = stream
+class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
+    def __init__(self, stream_id: int):
+        self.stream_id = stream_id
+        self.send_offset = 0
+        self.send_buffer = b""
+        self.fin_sent = False
+        self.lock = threading.Lock()
 
-    def write_data(self, data):
-        self.stream.add_data(data)
+    def write_data(self, data: bytes):
+        if not self.fin_sent:
+            with self.lock:
+                self.send_buffer += data
+        else:
+            raise ValueError("ERROR: cannot write. stream is closed.")
 
+    def generate_stream_frames(self, max_size: int) -> list[StreamFrame]:  # max_size of a packet-payload allocated
+        stream_frames = []
+        total_stream_frames = len(self.send_buffer) // max_size
+        for i in range(total_stream_frames):
+            stream_frames.append(
+                StreamFrame(stream_id=self.stream_id, offset=self.send_offset, length=max_size, fin=False,
+                            data=self.send_buffer[self.send_offset:self.send_offset + max_size]))
+            self.send_offset += max_size
+        stream_frames.append(
+            StreamFrame(stream_id=self.stream_id, offset=self.send_offset, length=len(self.send_buffer),
+                        fin=True,
+                        data=self.send_buffer[self.send_offset:]))  # last frame is the rest of the buffer with FIN bit
+        return stream_frames
+
+    def send_fin(self):
+        fin_sent = True
 
 
 # Example usage

@@ -9,7 +9,7 @@ FIN_BIT = 0x01
 
 
 @dataclass
-class Frame:
+class StreamFrame:
     stream_id: int  # 1-byte is enough because of project requirements
     offset: int  # "The largest offset delivered on a stream -- the sum of the offset and data length -- cannot exceed
     # 2^62-1" (RFC),so we will use 8-byte
@@ -35,7 +35,7 @@ class Frame:
         return struct.pack(struct_format, _type, self.stream_id, values) + self.data
 
     def get_stream_frame(self):
-        self._encode()
+        return self._encode()
 
     @classmethod
     def decode(cls, frame: bytes):
