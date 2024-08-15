@@ -63,6 +63,8 @@ class Frame:
         if _type & FIN_BIT:
             fin = True
 
+        # The rest is data
+        data, = frame[index:]
         # Create and return the object with the decoded values
-        return cls(stream_id=stream_id, offset=offset, length=length, fin=fin)
+        return cls(stream_id=stream_id, offset=offset, length=length, fin=fin, data=data)
 
