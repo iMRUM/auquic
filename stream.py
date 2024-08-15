@@ -207,18 +207,3 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
             with self.lock:
                 self.recv_buffer += data
 
-
-# Example usage
-if __name__ == "__main__":
-    stream_manager = StreamManager()
-
-    # Client-initiated, bidirectional stream
-    stream_manager.create_stream(1, 'client', bidirectional=True)
-    stream_manager.add_data_to_stream(1, b"client initiated bidirectional stream data")
-
-    # Server-initiated, unidirectional stream
-    stream_manager.create_stream(2, 'server', bidirectional=False)
-    stream_manager.add_data_to_stream(2, b"server initiated unidirectional stream data")
-
-    print(stream_manager.get_next_frame(1, 10))  # Fetch a chunk from the client-initiated stream
-    print(stream_manager.get_next_frame(2, 10))  # Fetch a chunk from the server-initiated stream
