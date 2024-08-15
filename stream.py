@@ -15,34 +15,41 @@ class Stream:
         self.stream_id = stream_id
         self.initiated_by = initiated_by  # 'client' or 'server'
         self.direction = direction
-        self.data = b""
-        self.offset = 0
+        self.sender = StreamSender(stream_id)
+        self.receiver = StreamReceiver(stream_id)
         self.lock = threading.Lock()
 
-    def add_data(self, data: bytes):  # user-initiated
+    def write(self, data: bytes):  # sending part
         """
-        Add data to the stream.
+        Add data to the stream by delegation.
 
         Args:
             data (bytes): Data to be added to the stream.
         """
-        with self.lock:
-            self.data += data
+        self.sender.write_data(data)
 
-    def get_chunk(self, size):  # quic-initiated, size is determined by size of packet/num of streams
+    def end_stream(self):
+        return self.sender.generate_fin_frame()
+
+    def reset_stream(self):  # TODO
+        pass
+
+    def read(self) -> bytes:  # receiving part
+        return self.receiver.read_data()
+
+    def get_stream_frames_to_send(self, payload_size):
         """
-        Retrieve a chunk of data from the stream.
+        Retrieve a list of all frames required for the data, depends on size of the data and size of a packet..
 
         Args:
-            size (int): The size of the chunk to retrieve.
-
+            payload_size (int): The size of the payload_size is determined by size of payload-packet/num of streams on that packet
+                calculation will be in quic.py
         Returns:
-            bytes: The retrieved chunk of data.
-        """
+             The retrieved list of all frames required for the data or a single fin frame.
+            """
         with self.lock:
-            chunk = self.data[self.offset:self.offset + size]
-            self.offset += len(chunk)
-            return chunk
+            stream_frames = self.sender.generate_stream_frames(payload_size)
+        return stream_frames
 
     def is_finished(self):
         """
@@ -111,7 +118,7 @@ class StreamManager:
         """
         stream = self.get_stream(stream_id)
         if stream:
-            stream.add_data(data)
+            stream.write(data)
 
     def get_next_frame(self, stream_id, frame_size):
         """
@@ -126,7 +133,7 @@ class StreamManager:
         """
         stream = self.get_stream(stream_id)
         if stream and not stream.is_finished():
-            chunk = stream.get_chunk(frame_size)
+            chunk = stream.get_stream_frames_to_send(frame_size)
             if chunk:
                 return (stream_id, chunk)
         return None
@@ -159,7 +166,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         else:
             raise ValueError("ERROR: cannot write. stream is closed.")
 
-    def generate_stream_frames(self, max_size: int) -> list[StreamFrame]:  # max_size of a packet-payload allocated
+    def generate_stream_frames(self, max_size: int) -> list[StreamFrame]:  # max_size for frame(payload allocated)
         stream_frames = []
         total_stream_frames = len(self.send_buffer) // max_size
         for i in range(total_stream_frames):
@@ -167,11 +174,15 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
                 StreamFrame(stream_id=self.stream_id, offset=self.send_offset, length=max_size, fin=False,
                             data=self.send_buffer[self.send_offset:self.send_offset + max_size]))
             self.send_offset += max_size
-        stream_frames.append(
-            StreamFrame(stream_id=self.stream_id, offset=self.send_offset, length=len(self.send_buffer),
-                        fin=True,
-                        data=self.send_buffer[self.send_offset:]))  # last frame is the rest of the buffer with FIN bit
+        stream_frames.append(self.generate_fin_frame())
         return stream_frames
+
+    def generate_fin_frame(self) -> StreamFrame:
+        return StreamFrame(stream_id=self.stream_id, offset=self.send_offset,
+                           length=len(self.send_buffer) - self.send_offset,
+                           fin=True,
+                           data=self.send_buffer[
+                                self.send_offset:])  # last frame is the rest of the buffer with FIN bit
 
     def sent_fin(self):
         self.fin_sent = True
@@ -188,6 +199,12 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self.is_ready = True
         self.lock = threading.Lock()
 
+    def read_data(self) -> bytes:
+        if self.is_ready:
+            return self.recv_buffer
+        else:
+            raise ValueError("ERROR: cannot read. stream is closed.")
+
     def stream_frame_recvd(self, frame: StreamFrame):
         if not self.recv_buffer_dict[frame.offset]:  # this frame wasn't already received
             self.recv_buffer_dict[frame.offset] = frame.data
@@ -202,8 +219,13 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
             self.is_ready = False
             self._convert_dict_to_buffer()
 
-    def _convert_dict_to_buffer(self):  # the dict is already sorted by offsets so just add the tandem
+    def _generate_stop_sending_frame(self):  # will return STOP_SENDING frame
+        return self
+
+    def send_stop_sending_frame(self):  # TODO: finish according to 2.4
+        frame = self._generate_stop_sending_frame()
+
+    def _convert_dict_to_buffer(self):  # the dict is already sorted by offsets so just add them tandem
         for data in self.recv_buffer_dict.values():
             with self.lock:
                 self.recv_buffer += data
-
