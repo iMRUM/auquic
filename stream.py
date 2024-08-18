@@ -1,5 +1,5 @@
 import threading
-from frame import FrameStream
+from _frame import FrameStream
 
 
 class Stream:

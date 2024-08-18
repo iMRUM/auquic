@@ -9,10 +9,24 @@ FIN_BIT = 0x01
 
 
 @dataclass
-class Frame(ABC):
+class _Frame(ABC):
     type: int
 
     @abstractmethod
+    def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def decode(cls, frame: bytes):
+        pass
+
+
+@dataclass
+class FrameMax_Data(_Frame):
+    maximum_data: int
+    type = 0x10
+
     def encode(self) -> bytes:
         pass
 
@@ -22,9 +36,25 @@ class Frame(ABC):
 
 
 @dataclass
-class FrameStream(Frame):
+class FrameMax_Streams(_Frame):  # Type (i) = 0x12..0x13 (from RFC-9000)
+    maximum_streams: int
+
+    def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    def decode(cls, frame: bytes):
+        pass
+
+
+@dataclass
+class _StreamFrame(_Frame, ABC):
+    stream_id: int
+
+
+@dataclass
+class FrameStream(_StreamFrame):
     type = TYPE_FIELD
-    stream_id: int  # 1-byte is enough because of project requirements
     offset: int  # "The largest offset delivered on a stream -- the sum of the offset and data length -- cannot exceed
     # 2^62-1" (RFC),so we will use 8-byte
     length: int  # same as offset
@@ -84,6 +114,53 @@ class FrameStream(Frame):
 
 
 @dataclass
-class FrameReset_Stream(Frame):
+class FrameReset_Stream(_StreamFrame):
+    application_protocol_error_code: int
+    final_size: int
+    type = 0x04
+
     def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    def decode(cls, frame: bytes):
+        pass
+
+
+@dataclass
+class FrameStop_Sending(_StreamFrame):
+    application_protocol_error_code: int
+    type = 0x05
+
+    def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    def decode(cls, frame: bytes):
+        pass
+
+
+@dataclass
+class FrameMax_Stream_Data(_StreamFrame):
+    maximum_stream_data: int
+    type = 0x11
+
+    def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    def decode(cls, frame: bytes):
+        pass
+
+
+@dataclass
+class FrameStream_Data_Blocked(_StreamFrame):
+    maximum_stream_data: int
+    type = 0x15
+
+    def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    def decode(cls, frame: bytes):
         pass

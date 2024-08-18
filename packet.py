@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 import struct
-from frame import get_stream_frame
+from _frame import get_stream_frame
 
 
 @dataclass
