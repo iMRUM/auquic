@@ -157,6 +157,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         self.send_buffer = b""
         self.fin_sent = False
         self.is_ready = True
+        self.stream_frames = []
         self.lock = threading.Lock()
 
     def write_data(self, data: bytes):
@@ -167,15 +168,14 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
             raise ValueError("ERROR: cannot write. stream is closed.")
 
     def generate_stream_frames(self, max_size: int) -> list[FrameStream]:  # max_size for frame(payload allocated)
-        stream_frames = []
         total_stream_frames = len(self.send_buffer) // max_size
         for i in range(total_stream_frames):
-            stream_frames.append(
+            self.stream_frames.append(
                 FrameStream(stream_id=self.stream_id, offset=self.send_offset, length=max_size, fin=False,
                             data=self.send_buffer[self.send_offset:self.send_offset + max_size]))
             self.send_offset += max_size
-        stream_frames.append(self.generate_fin_frame())
-        return stream_frames
+        self.stream_frames.append(self.generate_fin_frame())
+        return self.stream_frames
 
     def generate_fin_frame(self) -> FrameStream:
         return FrameStream(stream_id=self.stream_id, offset=self.send_offset,

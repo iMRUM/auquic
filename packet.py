@@ -29,11 +29,6 @@ class PacketHeader:  # total 1 byte
     def unpack(data: bytes):
         first_byte = struct.unpack("B", data[:1])[0]
         return PacketHeader(
-            header_form=(first_byte >> 7) & 0x01,
-            fixed_bit=(first_byte >> 6) & 0x01,
-            spin_bit=(first_byte >> 5) & 0x01,
-            reserved_bits=(first_byte >> 3) & 0x03,
-            key_phase=(first_byte >> 2) & 0x01,
             packet_number_length=first_byte & 0x03
         )
 

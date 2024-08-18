@@ -61,22 +61,21 @@ class FrameStream(_StreamFrame):
     fin: bool
     data: bytes
 
-    def encode(self) -> bytes:  #TODO: adjust to type from inheritacne(_type to self.type)
-        _type = TYPE_FIELD
+    def encode(self) -> bytes:  #DONE: adjust to type from inheritacne(_type to self.type)
         values = []
         if self.offset != 0:
-            _type = _type | OFF_BIT
+            self.type = self.type | OFF_BIT
             values.append(self.offset)
         if self.length != 0:
-            _type = _type | LEN_BIT
+            self.type = self.type | LEN_BIT
             values.append(self.length)
         if self.fin:
-            _type = _type | FIN_BIT
+            self.type = self.type | FIN_BIT
         values_len = len(values)
         struct_format = f'!BB{values_len}Q'
         # struct format is
         # |00001XXX-1-byte-type|1-byte-StreamID|Optional-8-byte-Offset|Optional-8-byte-Length|Payload(data)
-        return struct.pack(struct_format, _type, self.stream_id, values) + self.data
+        return struct.pack(struct_format, self.type, self.stream_id, values) + self.data
 
     def get_stream_frame(self):
         return self.encode()
