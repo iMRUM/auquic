@@ -1,5 +1,5 @@
 import struct
-from typing import Optional
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 TYPE_FIELD = 0x08
@@ -9,7 +9,21 @@ FIN_BIT = 0x01
 
 
 @dataclass
-class StreamFrame:
+class Frame(ABC):
+    type: int
+
+    @abstractmethod
+    def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    def decode(cls, frame: bytes):
+        pass
+
+
+@dataclass
+class FrameStream(Frame):
+    type = TYPE_FIELD
     stream_id: int  # 1-byte is enough because of project requirements
     offset: int  # "The largest offset delivered on a stream -- the sum of the offset and data length -- cannot exceed
     # 2^62-1" (RFC),so we will use 8-byte
@@ -17,7 +31,7 @@ class StreamFrame:
     fin: bool
     data: bytes
 
-    def _encode(self) -> bytes:
+    def encode(self) -> bytes:  #TODO: adjust to type from inheritacne(_type to self.type)
         _type = TYPE_FIELD
         values = []
         if self.offset != 0:
@@ -35,7 +49,7 @@ class StreamFrame:
         return struct.pack(struct_format, _type, self.stream_id, values) + self.data
 
     def get_stream_frame(self):
-        return self._encode()
+        return self.encode()
 
     @classmethod
     def decode(cls, frame: bytes):
@@ -68,3 +82,8 @@ class StreamFrame:
         # Create and return the object with the decoded values
         return cls(stream_id=stream_id, offset=offset, length=length, fin=fin, data=data)
 
+
+@dataclass
+class FrameReset_Stream(Frame):
+    def encode(self) -> bytes:
+        pass

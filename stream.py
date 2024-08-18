@@ -1,5 +1,5 @@
 import threading
-from frame import StreamFrame
+from frame import FrameStream
 
 
 class Stream:
@@ -166,19 +166,19 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         else:
             raise ValueError("ERROR: cannot write. stream is closed.")
 
-    def generate_stream_frames(self, max_size: int) -> list[StreamFrame]:  # max_size for frame(payload allocated)
+    def generate_stream_frames(self, max_size: int) -> list[FrameStream]:  # max_size for frame(payload allocated)
         stream_frames = []
         total_stream_frames = len(self.send_buffer) // max_size
         for i in range(total_stream_frames):
             stream_frames.append(
-                StreamFrame(stream_id=self.stream_id, offset=self.send_offset, length=max_size, fin=False,
+                FrameStream(stream_id=self.stream_id, offset=self.send_offset, length=max_size, fin=False,
                             data=self.send_buffer[self.send_offset:self.send_offset + max_size]))
             self.send_offset += max_size
         stream_frames.append(self.generate_fin_frame())
         return stream_frames
 
-    def generate_fin_frame(self) -> StreamFrame:
-        return StreamFrame(stream_id=self.stream_id, offset=self.send_offset,
+    def generate_fin_frame(self) -> FrameStream:
+        return FrameStream(stream_id=self.stream_id, offset=self.send_offset,
                            length=len(self.send_buffer) - self.send_offset,
                            fin=True,
                            data=self.send_buffer[
@@ -205,7 +205,7 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         else:
             raise ValueError("ERROR: cannot read. stream is closed.")
 
-    def stream_frame_recvd(self, frame: StreamFrame):
+    def stream_frame_recvd(self, frame: FrameStream):
         if not self.recv_buffer_dict[frame.offset]:  # this frame wasn't already received
             self.recv_buffer_dict[frame.offset] = frame.data
             self.curr_offset += len(frame.data)
@@ -213,7 +213,7 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
             if frame.fin:
                 self._fin_recvd(frame)
 
-    def _fin_recvd(self, frame: StreamFrame):
+    def _fin_recvd(self, frame: FrameStream):
         self.fin_recvd = True
         if self.curr_offset == frame.offset + len(frame.data):  # it is indeed the last frame
             self.is_ready = False
