@@ -1,5 +1,5 @@
 import threading
-from _frame import FrameStream
+from _frame import *
 
 
 class Stream:
@@ -188,6 +188,10 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         self.fin_sent = True
         self.is_ready = False
 
+    def get_next_frame(self) -> FrameStream:
+        with self.lock:
+            return self.stream_frames.pop(0)
+
 
 class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
     def __init__(self, stream_id: int):
@@ -219,8 +223,8 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
             self.is_ready = False
             self._convert_dict_to_buffer()
 
-    def _generate_stop_sending_frame(self):  # will return STOP_SENDING frame
-        return self
+    def _generate_stop_sending_frame(self) -> FrameStop_Sending:  # will return STOP_SENDING frame
+        return FrameStop_Sending(stream_id=self.stream_id, application_protocol_error_code= 1)
 
     def send_stop_sending_frame(self):  # TODO: finish according to 2.4
         frame = self._generate_stop_sending_frame()
