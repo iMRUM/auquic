@@ -1,5 +1,5 @@
 import threading
-from _frame import *
+from _frame import FrameStream, FrameReset_Stream
 
 READY = RECV = 0
 SEND = SIZE_KNOWN = 1
@@ -195,14 +195,14 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         return FrameReset_Stream(stream_id=self.stream_id, application_protocol_error_code=1,
                                  final_size=self.send_offset + 1)
 
-    def send_next_frame(self) -> FrameStream:
+    def send_next_frame(self) -> bytes:
         with self.lock:
             self._state = SEND
         frame = self.stream_frames.pop(0)
         if frame.fin:
             with self.lock:
                 self._state = DATA_SENT
-        return frame
+        return frame.FrameStream.encode()
 
 
 class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams

@@ -1,19 +1,31 @@
 import threading
 import socket
-from packet import Packet
+import random
+from packet import Packet, PacketHeader
 from stream import Stream
+from sys import getsizeof
+
+PACKET_SIZE = 1024
+CONNECTION_ID = 256
 
 
 class QuicConnection:
-    def __init__(self, connection_id: int):
+    def __init__(self, connection_id: int, local_addr: tuple, remote_addr: tuple):
         """
         Initialize a Connection instance.
         We will use connection_id 0 for client and 1 for server
         """
-        self.id = connection_id
+        self.connection_id = connection_id
+        self.local_addr = local_addr
+        self.remote_addr = remote_addr
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(local_addr)
         self.streams = {}
         self.lock = threading.Lock()
-        self.packet_size = 1000  # Fixed packet size in bytes
+        self._pending_packets = []
+        self._packets_counter = 0
+        self._pending_frames = []
+        self._retrieved_packets = []
 
     def add_stream(self, stream_id, initiated_by, direction):
         """
@@ -41,28 +53,43 @@ class QuicConnection:
         if self._is_stream_in_dict(stream_id):
             self.streams[stream_id].write(data=data)
 
+    def _generate_streams_frames(self):
+        for stream in list(self.streams.keys()):
+            with self.lock:
+                stream.generate_stream_frames(max_size=PACKET_SIZE // 5)
+
+    def _get_random_stream_from_streams(self):
+        return random.choice(list(self.streams.keys()))
+
     def create_packet(self):
         """
         Create a packet containing frames from the streams.
-
+        1. generate frames for each stream
+        2. assemble SOME of them and add to packet payload
+        3. add packet to pending packets
+        TODO: REMOVE ANY STREAM_MANAGER REFERENCE
         Returns:
             Packet: The created packet with frames from different streams.
         """
+        self._generate_streams_frames()
         with self.lock:
-            packet = Packet()
-            remaining_space = self.packet_size
-            stream_ids = list(self.stream_manager.streams.keys())
-
-            for stream_id in stream_ids:
-                frame = self.stream_manager.get_next_frame(stream_id, remaining_space)
-                if frame:
-                    stream_id, chunk = frame
-                    packet.add_frame(stream_id, chunk)
-                    remaining_space -= len(chunk)
-                    if remaining_space <= 0:
-                        break
-
-            return packet
+            packet_header = PacketHeader(getsizeof(self._packets_counter) - 1)  # as of rfc9000.html#name-1-rtt-packet
+            remaining_space = PACKET_SIZE
+            # p = Packet(packet_header, CONNECTION_ID, self._packets_counter)
+            if packet := Packet(packet_header, CONNECTION_ID, self._packets_counter):
+                remaining_space -= getsizeof(packet)
+                for i in range(5):  # arbitrary amount of iterations
+                    if stream := self._get_random_stream_from_streams():
+                        if frame := stream.send_next_frame():
+                            size_of_frame = getsizeof(frame)
+                            if size_of_frame <= remaining_space:
+                                packet.add_frame(frame)
+                                remaining_space -= size_of_frame
+                            else:
+                                self._pending_frames.append(frame)
+                return packet
+            else:
+                raise ValueError("Packet couldn't be created")
 
     def _is_stream_in_dict(self, stream_id: int):
         return stream_id in self.streams
@@ -71,20 +98,29 @@ class QuicConnection:
         """
         Continuously create and send packets until all streams are exhausted.
         """
-        while self.stream_manager.streams:
+        while self.streams:
             packet = self.create_packet()
-            if packet.frames:
+            if not getsizeof(packet.payload) == getsizeof(b''):
                 self.send_packet(packet)
 
     def send_packet(self, packet):
-        """
-        Placeholder for actual packet sending logic.
+        with self.lock:
+            if self.socket.sendto(packet, self.remote_addr):
+                print(f"Sending packet {packet} with {len(packet.frames)} frames")
 
-        Args:
-            packet (Packet): The packet to send.
-        """
-        print(f"Sending packet with {len(packet.frames)} frames")
+    def receive_packets(self):
+        while self.socket.fileno() >= 0: # while socket is not closed
+            self.receive_packet()
 
+    def receive_packet(self):
+        with self.lock:
+            packet, addr= self.socket.recvfrom(PACKET_SIZE)
+            if packet:
+                self.handle_received_packet(packet)
+
+    def handle_received_packet(self, packet: bytes):
+        unpacked_packet = Packet.unpack(packet)
+        packed_payload = unpacked_packet.payload
 
 # Example usage
 if __name__ == "__main__":

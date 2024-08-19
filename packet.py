@@ -38,7 +38,7 @@ class Packet:
     header: PacketHeader
     destination_connection_id: int  # Variable length (let's assume 8 bytes in this example)
     packet_number: int  # Variable length
-    payload: bytes  # Payload (variable length)
+    payload = b''  # Payload (variable length)
 
     def pack(self) -> bytes:
         # Pack the header
@@ -50,7 +50,7 @@ class Packet:
 
         # Pack the Packet Number based on its length
         packet_number_format = {1: "B", 2: ">H", 3: ">I", 4: ">I"}[self.header.packet_number_length + 1]
-        if self.header.packet_number_length == 3: # there's no 3-byte format, however, the packet number requires 3bytes only, hence byte[0] can be omitted.
+        if self.header.packet_number_length == 3:  # there's no 3-byte format, however, the packet number requires 3bytes only, hence byte[0] can be omitted.
             packet_number_bytes = struct.pack(packet_number_format, self.packet_number)[1:]
         else:
             packet_number_bytes = struct.pack(packet_number_format, self.packet_number)
@@ -85,12 +85,11 @@ class Packet:
             payload=payload
         )
 
-    def add_frame(self, stream_id, data):
+    def add_frame(self, frame: bytes):
         """
         Add a frame to the packet.
 
         Args:
-            stream_id (int): Unique identifier for the stream.
-            data (bytes): The data to be added as a frame.
+            frame (bytes): The frame to be added as bytes.
         """
-        self.payload.join(get_stream_frame(stream_id, data))
+        self.payload.join(frame)
