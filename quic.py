@@ -1,17 +1,17 @@
 import threading
 import socket
 from packet import Packet
-from stream import Stream, StreamManager, StreamSender
+from stream import Stream
 
 
 class QuicConnection:
     def __init__(self, connection_id: int):
         """
         Initialize a Connection instance.
+        We will use connection_id 0 for client and 1 for server
         """
         self.id = connection_id
         self.streams = {}
-        self.stream_manager = StreamManager()
         self.lock = threading.Lock()
         self.packet_size = 1000  # Fixed packet size in bytes
 
@@ -25,8 +25,10 @@ class QuicConnection:
             direction (int): Indicates if the stream is bidirectional. Default is True.
         """
         with self.lock:
-            if stream_id not in self.streams:
+            if not self._is_stream_in_dict(stream_id):
                 self.streams[stream_id] = Stream(stream_id, initiated_by, direction)
+
+        print(f"Stream: {stream_id} was added successfully.")
 
     def add_data_to_stream(self, stream_id, data):
         """
@@ -36,7 +38,8 @@ class QuicConnection:
             stream_id (int): Unique identifier for the stream.
             data (bytes): Data to be added to the stream.
         """
-        self.stream_manager.add_data_to_stream(stream_id, data)
+        if self._is_stream_in_dict(stream_id):
+            self.streams[stream_id].write(data=data)
 
     def create_packet(self):
         """
@@ -60,6 +63,9 @@ class QuicConnection:
                         break
 
             return packet
+
+    def _is_stream_in_dict(self, stream_id: int):
+        return stream_id in self.streams
 
     def send_packets(self):
         """
