@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 import struct
-from _frame import get_stream_frame
+from _frame import FrameStream
 
 PACKET_NUMBER_LENGTH = 0x03
 FORM = 0b10000000
@@ -11,7 +11,7 @@ RES = 0b00011000
 KEY = 0b00000100
 ONE = 0x01
 TWO = 0x03
-#consts for payload handling:
+# consts for payload handling:
 TYPE_FIELD = 0x08
 OFF_BIT = 0x04
 LEN_BIT = 0x02
@@ -85,21 +85,34 @@ class Packet:
             payload=payload
         )
 
-    def get_payload_frames(self):
-        frame_total_length = 2 # in bytes
-        first_byte_int = int.from_bytes(self.payload[0:1], 'big')  # type of first frame
-        second_byte_int = int.from_bytes(self.payload[1:2], 'big')  # stream_id of first frame
-        if first_byte_int & OFF_BIT: # off bit is 1
-            frame_total_length += 1
-        if first_byte_int & LEN_BIT: # len bit is 1
-
-
+    def get_payload_frames_dict(self) -> {}:
+        index = 0
+        frames_dict = {}
+        while index < len(self.payload):
+            frame_total_length = 9  # in bytes
+            type_byte_int = int.from_bytes(self.payload[index:index + 1], 'big')  # type of first frame
+            stream_id_int = int.from_bytes(self.payload[index + 1:index + 9], 'big')  # stream_id of first frame
+            if type_byte_int & OFF_BIT:  # off bit is 1 [9:17]
+                frame_total_length += 8
+            if type_byte_int & LEN_BIT:  # len bit is 1 [17:25]
+                frame_total_length += 8 + int.from_bytes(self.payload[17:25])  # len field + data
+            curr_frame = self.payload[index: index + frame_total_length]
+            frames_dict[stream_id_int] = curr_frame
+            index += frame_total_length
+        return frames_dict
 
     def add_frame(self, frame: bytes):
         """
         Add a frame to the packet.
-
+        while index < len(self.payload):
+            frame_total_length = 9  # in bytes
+            first_byte_int = int.from_bytes(self.payload[0:1], 'big')  # type of first frame
+            second_byte_int = int.from_bytes(self.payload[1:9], 'big')  # stream_id of first frame
+            if first_byte_int & OFF_BIT:  # off bit is 1 [9:17]
+                frame_total_length += 8
+            if first_byte_int & LEN_BIT:  # len bit is 1 [17:25]
+                frame_total_length += 8 + int.from_bytes(self.payload[17:25])
         Args:
             frame (bytes): The frame to be added as bytes.
         """
-        self.payload.join(frame)
+        self.payload+=frame
