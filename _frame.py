@@ -48,13 +48,12 @@ class FrameMax_Streams(_Frame):  # Type (i) = 0x12..0x13 (from RFC-9000)
 
 
 @dataclass
-class _StreamFrame(_Frame, ABC):
+class _StreamFrame(ABC):
     stream_id: int
 
 
 @dataclass
 class FrameStream(_StreamFrame):
-    type = TYPE_FIELD  # TODO: delete
     offset: int  # "The largest offset delivered on a stream -- the sum of the offset and data length -- cannot exceed
     # 2^62-1" (RFC),so we will use 8-byte
     length: int  # same as offset
@@ -62,8 +61,7 @@ class FrameStream(_StreamFrame):
     data: bytes
 
     def encode(self) -> bytes:
-        values = []
-        # encoded_frame = self.stream_id.to_bytes(8, 'big')
+        values = [self.stream_id.to_bytes(8, 'big')]
         type_field = TYPE_FIELD
         if self.offset != 0:
             type_field = type_field | OFF_BIT
@@ -73,33 +71,63 @@ class FrameStream(_StreamFrame):
             values.append(self.length.to_bytes(8, 'big'))
         if self.fin:
             type_field = type_field | FIN_BIT
-        values.append(self.stream_id.to_bytes(8, 'big'))
+        values.append(self.data)
         encoded_frame = type_field.to_bytes(1, 'big')  # type is byte[0]
         for v in values:
             encoded_frame += v
         return encoded_frame
 
-    def encode2(self) -> bytes:  #TODO: delete
-        values = []
-        if self.offset != 0:
-            self.type = self.type | OFF_BIT
-            values.append(self.offset)
-        if self.length != 0:
-            self.type = self.type | LEN_BIT
-            values.append(self.length)
-        if self.fin:
-            self.type = self.type | FIN_BIT
-        values_len = len(values)
-        struct_format = f'!BB{values_len}Q'
-        # struct format is
-        # |00001XXX-1-byte-type|1-byte-StreamID|Optional-8-byte-Offset|Optional-8-byte-Length|Payload(data)
-        return struct.pack(struct_format, self.type, self.stream_id, values) + self.data
+    @classmethod
+    def decode(cls, frame: bytes):
+        offset = 0
+        length = 0
+        fin = False
+        type_field = int.from_bytes(frame[0:1], 'big')
+        stream_id = int.from_bytes(frame[1:9], 'big')
+        index = 9
+        if type_field & OFF_BIT:
+            offset = int.from_bytes(frame[index:index+8], 'big')
+            index += 8
+
+        # Check if the length is present
+        if type_field & LEN_BIT:
+            length = int.from_bytes(frame[index:index+8], 'big')
+            index += 8
+
+        # Check if the FIN bit is set
+        if type_field & FIN_BIT:
+            fin = True
+        stream_data = frame[index:]
+        return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
 
     def get_stream_frame(self):
         return self.encode()
 
     @classmethod
     def decode(cls, frame: bytes):
+        offset = 0
+        length = 0
+        fin = False
+        type_field = frame[0]
+        stream_id = frame[1]
+        index = 2
+        if type_field & OFF_BIT:
+            offset = frame[index]
+            index += 1
+
+        # Check if the length is present
+        if type_field & LEN_BIT:
+            length = frame[index]
+            index += 1
+
+        # Check if the FIN bit is set
+        if type_field & FIN_BIT:
+            fin = True
+        stream_data = frame[index:]
+        return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
+
+    @classmethod
+    def decode2(cls, frame: bytes):
         # Unpack the first 2 bytes (type and stream_id)
         _type, stream_id = struct.unpack('!BB', frame[:2])
 

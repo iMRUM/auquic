@@ -109,18 +109,19 @@ class QuicConnection:
                 print(f"Sending packet {packet} with {len(packet.frames)} frames")
 
     def receive_packets(self):
-        while self.socket.fileno() >= 0: # while socket is not closed
+        while self.socket.fileno() >= 0:  # while socket is not closed
             self.receive_packet()
 
     def receive_packet(self):
         with self.lock:
-            packet, addr= self.socket.recvfrom(PACKET_SIZE)
+            packet, addr = self.socket.recvfrom(PACKET_SIZE)
             if packet:
                 self.handle_received_packet(packet)
 
     def handle_received_packet(self, packet: bytes):
         unpacked_packet = Packet.unpack(packet)
         packed_payload = unpacked_packet.payload
+
 
 # Example usage
 if __name__ == "__main__":
