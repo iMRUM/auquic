@@ -59,7 +59,7 @@ class QuicConnection:
                 stream.generate_stream_frames(max_size=PACKET_SIZE // 5)
 
     def _get_random_stream_from_streams(self):
-        return random.choice(list(self.streams.keys()))
+        return random.choice(list(self.streams.values()))
 
     def create_packet(self):
         """
@@ -73,7 +73,7 @@ class QuicConnection:
         """
         self._generate_streams_frames()
         with self.lock:
-            packet_header = PacketHeader(getsizeof(self._packets_counter) - 1)  # as of rfc9000.html#name-1-rtt-packet
+            packet_header = PacketHeader((self._packets_counter-1).bit_length())  # as of rfc9000.html#name-1-rtt-packet
             remaining_space = PACKET_SIZE
             # p = Packet(packet_header, CONNECTION_ID, self._packets_counter)
             if packet := Packet(packet_header, CONNECTION_ID, self._packets_counter):

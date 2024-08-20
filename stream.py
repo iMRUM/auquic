@@ -1,4 +1,6 @@
 import threading
+from typing import Optional
+
 from _frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 
 READY = RECV = 0
@@ -7,6 +9,7 @@ DATA_SENT = DATA_READ = 2
 DATA_RECVD = 3
 RESET_SENT = RESET_READ = 4
 RESET_RECVD = 5
+FILE = 'a.txt'
 
 
 class Stream:
@@ -60,7 +63,7 @@ class Stream:
         return self.receiver.read_data()
 
     def receive_frame(self, frame):
-        self.receiver.stream_frame_recvd(frame)
+        self.receiver.stream_frame_recvd(FrameStream.decode(frame))
 
     def is_finished(self):
         """
@@ -160,11 +163,16 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         self.send_buffer = b""
         self.fin_sent = False
         self._state = READY
-        self.stream_frames = []
+        self.stream_frames: list[FrameStream] = []
         self.lock = threading.Lock()
 
     def is_ready_state(self) -> bool:
         return self._state == READY
+
+    def get_file(self, file_path):
+        with open(FILE, 'rb') as file:
+            while data := file.read(1024):
+                self.write_data(data)
 
     def write_data(self, data: bytes):
         if self._state == READY:
@@ -195,14 +203,15 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         return FrameReset_Stream(stream_id=self.stream_id, application_protocol_error_code=1,
                                  final_size=self.send_offset + 1)
 
-    def send_next_frame(self) -> bytes:
+    def send_next_frame(self) -> Optional[bytes]:
         with self.lock:
             self._state = SEND
-        frame = self.stream_frames.pop(0)
-        if frame.fin:
-            with self.lock:
-                self._state = DATA_SENT
-        return frame.FrameStream.encode()
+        if self.stream_frames:
+            frame = self.stream_frames.pop(0)
+            if frame.fin:
+                with self.lock:
+                    self._state = DATA_SENT
+            return frame.encode()
 
 
 class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
@@ -246,3 +255,10 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         for data in self.recv_buffer_dict.values():
             with self.lock:
                 self.recv_buffer += data
+
+    def _write_file(self):
+        with open(r'C:\Users\rodki\recv', 'wb') as file:
+            while True:
+                if not self.recv_buffer:
+                    break
+                file.write(self.recv_buffer)

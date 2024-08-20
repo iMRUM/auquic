@@ -59,7 +59,7 @@ class Packet:
     header: PacketHeader
     destination_connection_id: int  # Variable length (let's assume 8 bytes in this example)
     packet_number: int  # Variable length
-    payload: bytes  # Payload (variable length)
+    payload: bytes = b''  # Payload (variable length)
 
     def pack(self) -> bytes:
         # Pack the header
