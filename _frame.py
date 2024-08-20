@@ -103,61 +103,6 @@ class FrameStream(_StreamFrame):
     def get_stream_frame(self):
         return self.encode()
 
-    @classmethod
-    def decode(cls, frame: bytes):
-        offset = 0
-        length = 0
-        fin = False
-        type_field = frame[0]
-        stream_id = frame[1]
-        index = 2
-        if type_field & OFF_BIT:
-            offset = frame[index]
-            index += 1
-
-        # Check if the length is present
-        if type_field & LEN_BIT:
-            length = frame[index]
-            index += 1
-
-        # Check if the FIN bit is set
-        if type_field & FIN_BIT:
-            fin = True
-        stream_data = frame[index:]
-        return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
-
-    @classmethod
-    def decode2(cls, frame: bytes):
-        # Unpack the first 2 bytes (type and stream_id)
-        _type, stream_id = struct.unpack('!BB', frame[:2])
-
-        offset = 0
-        length = 0
-        fin = False
-
-        # Set the index after the initial fixed fields
-        index = 2
-
-        # Check if the offset is present
-        if _type & OFF_BIT:
-            offset, = struct.unpack('!Q', frame[index:index + 8])
-            index += 8
-
-        # Check if the length is present
-        if _type & LEN_BIT:
-            length, = struct.unpack('!Q', frame[index:index + 8])
-            index += 8
-
-        # Check if the FIN bit is set
-        if _type & FIN_BIT:
-            fin = True
-
-        # The rest is data
-        data, = frame[index:]
-        # Create and return the object with the decoded values
-        return cls(stream_id=stream_id, offset=offset, length=length, fin=fin, data=data)
-
-
 @dataclass
 class FrameReset_Stream(_StreamFrame):
     application_protocol_error_code: int
