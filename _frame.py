@@ -86,12 +86,12 @@ class FrameStream(_StreamFrame):
         stream_id = int.from_bytes(frame[1:9], 'big')
         index = 9
         if type_field & OFF_BIT:
-            offset = int.from_bytes(frame[index:index+8], 'big')
+            offset = int.from_bytes(frame[index:index + 8], 'big')
             index += 8
 
         # Check if the length is present
         if type_field & LEN_BIT:
-            length = int.from_bytes(frame[index:index+8], 'big')
+            length = int.from_bytes(frame[index:index + 8], 'big')
             index += 8
 
         # Check if the FIN bit is set
@@ -102,6 +102,7 @@ class FrameStream(_StreamFrame):
 
     def get_stream_frame(self):
         return self.encode()
+
 
 @dataclass
 class FrameReset_Stream(_StreamFrame):
