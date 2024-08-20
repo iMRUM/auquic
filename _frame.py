@@ -54,14 +54,32 @@ class _StreamFrame(_Frame, ABC):
 
 @dataclass
 class FrameStream(_StreamFrame):
-    type = TYPE_FIELD
+    type = TYPE_FIELD  # TODO: delete
     offset: int  # "The largest offset delivered on a stream -- the sum of the offset and data length -- cannot exceed
     # 2^62-1" (RFC),so we will use 8-byte
     length: int  # same as offset
     fin: bool
     data: bytes
 
-    def encode(self) -> bytes:  #DONE: adjust to type from inheritacne(_type to self.type)
+    def encode(self) -> bytes:
+        values = []
+        # encoded_frame = self.stream_id.to_bytes(8, 'big')
+        type_field = TYPE_FIELD
+        if self.offset != 0:
+            type_field = type_field | OFF_BIT
+            values.append(self.offset.to_bytes(8, 'big'))
+        if self.length != 0:
+            type_field = type_field | LEN_BIT
+            values.append(self.length.to_bytes(8, 'big'))
+        if self.fin:
+            type_field = type_field | FIN_BIT
+        values.append(self.stream_id.to_bytes(8, 'big'))
+        encoded_frame = type_field.to_bytes(1, 'big')  # type is byte[0]
+        for v in values:
+            encoded_frame += v
+        return encoded_frame
+
+    def encode2(self) -> bytes:  #TODO: delete
         values = []
         if self.offset != 0:
             self.type = self.type | OFF_BIT

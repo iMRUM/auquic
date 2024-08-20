@@ -1,5 +1,5 @@
 import threading
-from _frame import FrameStream, FrameReset_Stream
+from _frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 
 READY = RECV = 0
 SEND = SIZE_KNOWN = 1
@@ -233,7 +233,7 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
     def _fin_recvd(self, frame: FrameStream):
         self.fin_recvd = True
         if self.curr_offset == frame.offset + len(frame.data):  # it is indeed the last frame
-            self._is_ready = False
+            self._state = DATA_RECVD
             self._convert_dict_to_buffer()
 
     def _generate_stop_sending_frame(self) -> FrameStop_Sending:  # will return STOP_SENDING frame
