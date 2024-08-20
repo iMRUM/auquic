@@ -20,20 +20,6 @@ def main():
     quic_connection.add_stream(STREAM_ID_1, initiated_by=connection_id, direction=0)
     quic_connection.add_stream(STREAM_ID_2, initiated_by=connection_id, direction=0)
     start(quic_connection)
-    '''
-    # Create threads to receive files simultaneously
-    thread1 = threading.Thread(target=start, args=(quic_connection,))
-    thread2 = threading.Thread(target=start, args=(quic_connection,))
-
-    thread1.start()
-    thread2.start()
-
-    # Start receiving packets
-    quic_connection.receive_packets()
-
-    thread1.join()
-    thread2.join()
-    '''
 
 if __name__ == '__main__':
     main()
