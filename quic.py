@@ -20,7 +20,7 @@ class QuicConnection:
         self.remote_addr = remote_addr
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(local_addr)
-        self.streams = {}
+        self.streams: dict[int, Stream] = {}
         self.lock = threading.Lock()
         self._pending_packets = []
         self._packets_counter = 0
@@ -54,7 +54,7 @@ class QuicConnection:
             self.streams[stream_id].write(data=data)
 
     def _generate_streams_frames(self):
-        for stream in list(self.streams.keys()):
+        for stream in list(self.streams.values()):
             with self.lock:
                 stream.generate_stream_frames(max_size=PACKET_SIZE // 5)
 
@@ -91,22 +91,22 @@ class QuicConnection:
             else:
                 raise ValueError("Packet couldn't be created")
 
-    def _is_stream_in_dict(self, stream_id: int):
-        return stream_id in self.streams
+    def _is_stream_in_dict(self, stream_id: int) -> bool:
+        return stream_id in self.streams.keys()
 
     def send_packets(self):
         """
-        Continuously create and send packets until all streams are exhausted.
+        Continuously create and send packets until all streams are done.
         """
         while self.streams:
             packet = self.create_packet()
             if not getsizeof(packet.payload) == getsizeof(b''):
                 self.send_packet(packet)
 
-    def send_packet(self, packet):
+    def send_packet(self, packet: Packet):
         with self.lock:
-            if self.socket.sendto(packet, self.remote_addr):
-                print(f"Sending packet {packet} with {len(packet.frames)} frames")
+            if self.socket.sendto(packet.pack(), self.remote_addr):
+                print(f"Sending packet {packet}")
 
     def receive_packets(self):
         while self.socket.fileno() >= 0:  # while socket is not closed
@@ -120,19 +120,12 @@ class QuicConnection:
 
     def handle_received_packet(self, packet: bytes):
         unpacked_packet = Packet.unpack(packet)
-        packed_payload = unpacked_packet.payload
+        frames_in_packet_dict = unpacked_packet.get_payload_frames_dict()
+        for stream_id in frames_in_packet_dict.keys():
+            if self._is_stream_in_dict(stream_id):
+                self.streams[stream_id].receive_frame(frames_in_packet_dict.get(stream_id))
 
 
 # Example usage
 if __name__ == "__main__":
-    conn = QuicConnection()
-    conn.add_stream(1, 'client', direction=True)
-    conn.add_data_to_stream(1, b"client initiated bidirectional stream data" * 10)
-    conn.add_stream(2, 'server', direction=False)
-    conn.add_data_to_stream(2, b"server initiated unidirectional stream data" * 8)
-    conn.add_stream(3, 'client', direction=True)
-    conn.add_data_to_stream(3, b"client initiated bidirectional stream data" * 6)
-
-    sender_thread = threading.Thread(target=conn.send_packets)
-    sender_thread.start()
-    sender_thread.join()
+    pass

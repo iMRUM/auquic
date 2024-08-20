@@ -85,7 +85,7 @@ class Packet:
             payload=payload
         )
 
-    def get_payload_frames_dict(self) -> {}:
+    def get_payload_frames_dict(self) -> dict:
         index = 0
         frames_dict = {}
         while index < len(self.payload):
@@ -115,4 +115,4 @@ class Packet:
         Args:
             frame (bytes): The frame to be added as bytes.
         """
-        self.payload+=frame
+        self.payload += frame
