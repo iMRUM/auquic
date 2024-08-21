@@ -21,26 +21,35 @@ class QuicConnection:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.bind(local_addr)
         self.streams: dict[int, Stream] = {}
+        self._streams_counter = 0
         self.lock = threading.Lock()
         self._pending_packets = []
         self._packets_counter = 0
         self._pending_frames = []
         self._retrieved_packets = []
 
-    def add_stream(self, stream_id, initiated_by, direction):
+    def add_stream(self, initiated_by, direction):
         """
         Add a new stream to the connection.
 
         Args:
             stream_id (int): Unique identifier for the stream.
-            initiated_by (int): Indicates whether the stream was initiated by 'client' or 'server'.
-            direction (int): Indicates if the stream is bidirectional. Default is True.
+            initiated_by (int): Indicates whether the stream was initiated by 'client'(0) or 'server'(1).
+            direction (int): Indicates if the stream is bidirectional(0) or unidirectional(1).
         """
         with self.lock:
+            stream_id = self._stream_id_generator(initiated_by, direction)
             if not self._is_stream_in_dict(stream_id):
                 self.streams[stream_id] = Stream(stream_id, initiated_by, direction)
+                self._streams_counter += 1
 
         print(f"Stream: {stream_id} was added successfully.")
+
+    def _stream_id_generator(self, initiated_by, direction):  # 62-bit
+        str_binary = bin(self._streams_counter)[2:]  # convert to binary string without prefix
+        str_binary += str(direction) + str(initiated_by)
+        padded_int = int(str_binary, 2)
+        return padded_int
 
     def add_data_to_stream(self, stream_id, data):
         """
@@ -54,12 +63,15 @@ class QuicConnection:
             self.streams[stream_id].write(data=data)
 
     def _generate_streams_frames(self):
-        for stream in list(self.streams.values()):
-            with self.lock:
+        with self.lock:
+            for stream in list(self.streams.values()):
                 stream.generate_stream_frames(max_size=PACKET_SIZE // 5)
 
     def _get_random_stream_from_streams(self):
         return random.choice(list(self.streams.values()))
+
+    def create_packet2(self):
+        self._generate_streams_frames()
 
     def create_packet(self):
         """
@@ -67,13 +79,13 @@ class QuicConnection:
         1. generate frames for each stream
         2. assemble SOME of them and add to packet payload
         3. add packet to pending packets
-        TODO: REMOVE ANY STREAM_MANAGER REFERENCE
         Returns:
             Packet: The created packet with frames from different streams.
         """
         self._generate_streams_frames()
         with self.lock:
-            packet_header = PacketHeader((self._packets_counter-1).bit_length())  # as of rfc9000.html#name-1-rtt-packet
+            packet_header = PacketHeader(
+                (self._packets_counter - 1).bit_length())  # as of rfc9000.html#name-1-rtt-packet
             remaining_space = PACKET_SIZE
             # p = Packet(packet_header, CONNECTION_ID, self._packets_counter)
             if packet := Packet(packet_header, CONNECTION_ID, self._packets_counter):

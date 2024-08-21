@@ -17,8 +17,8 @@ def main():
     connection_id = 1  # Server
     quic_connection = QuicConnection(connection_id, LOCAL_ADDRESS, REMOTE_ADDRESS)
     # Add two streams to receive the files
-    quic_connection.add_stream(STREAM_ID_1, initiated_by=connection_id, direction=0)
-    quic_connection.add_stream(STREAM_ID_2, initiated_by=connection_id, direction=0)
+    quic_connection.add_stream(initiated_by=connection_id, direction=0)
+    quic_connection.add_stream(initiated_by=connection_id, direction=0)
     start(quic_connection)
 
 if __name__ == '__main__':

@@ -169,7 +169,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
     def is_ready_state(self) -> bool:
         return self._state == READY
 
-    def get_file(self, file_path):
+    def _read_file(self, file_path):
         with open(FILE, 'rb') as file:
             while data := file.read(1024):
                 self.write_data(data)
@@ -258,7 +258,9 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
 
     def _write_file(self):
         with open(r'C:\Users\rodki\recv', 'wb') as file:
-            while True:
-                if not self.recv_buffer:
+            while not self.fin_recvd:
+                if self._state == DATA_RECVD:
                     break
-                file.write(self.recv_buffer)
+            file.write(self.recv_buffer)
+            file.close()
+        self._state = DATA_READ
