@@ -129,7 +129,9 @@ class QuicConnection:
 
     def receive_packets(self):
         while self.socket.fileno() >= 0:  # while socket is not closed
+            print("receive")
             self.receive_packet()
+        print("not receive")
 
     def receive_packet(self):
         with self.lock:
