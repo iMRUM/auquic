@@ -6,7 +6,6 @@ from stream import Stream
 from sys import getsizeof
 
 PACKET_SIZE = 1024
-CONNECTION_ID = 256
 
 
 class QuicConnection:
@@ -28,22 +27,27 @@ class QuicConnection:
         self._pending_frames = []
         self._retrieved_packets = []
 
-    def add_stream(self, initiated_by, direction):
+    def add_stream(self, initiated_by, direction) -> 'Stream':
         """
         Add a new stream to the connection.
 
         Args:
-            stream_id (int): Unique identifier for the stream.
             initiated_by (int): Indicates whether the stream was initiated by 'client'(0) or 'server'(1).
             direction (int): Indicates if the stream is bidirectional(0) or unidirectional(1).
         """
         with self.lock:
             stream_id = self._stream_id_generator(initiated_by, direction)
+
+        return self.add_stream_by_id(stream_id)
+
+    def add_stream_by_id(self, stream_id):
+        with self.lock:
             if not self._is_stream_in_dict(stream_id):
-                self.streams[stream_id] = Stream(stream_id, initiated_by, direction)
+                self.streams[stream_id] = Stream(stream_id)
                 self._streams_counter += 1
 
         print(f"Stream: {stream_id} was added successfully.")
+        return self.streams[stream_id]
 
     def _stream_id_generator(self, initiated_by, direction):  # 62-bit
         str_binary = bin(self._streams_counter)[2:]  # convert to binary string without prefix
@@ -61,6 +65,8 @@ class QuicConnection:
         """
         if self._is_stream_in_dict(stream_id):
             self.streams[stream_id].write(data=data)
+        else:
+            raise ValueError("ERROR: STREAM WAS NOT FOUND")
 
     def _generate_streams_frames(self):
         with self.lock:
@@ -88,7 +94,7 @@ class QuicConnection:
                 (self._packets_counter - 1).bit_length())  # as of rfc9000.html#name-1-rtt-packet
             remaining_space = PACKET_SIZE
             # p = Packet(packet_header, CONNECTION_ID, self._packets_counter)
-            if packet := Packet(packet_header, CONNECTION_ID, self._packets_counter):
+            if packet := Packet(packet_header, int(not self.connection_id), self._packets_counter):
                 remaining_space -= getsizeof(packet)
                 for i in range(5):  # arbitrary amount of iterations
                     if stream := self._get_random_stream_from_streams():
@@ -99,6 +105,7 @@ class QuicConnection:
                                 remaining_space -= size_of_frame
                             else:
                                 self._pending_frames.append(frame)
+                self._packets_counter += 1
                 return packet
             else:
                 raise ValueError("Packet couldn't be created")
@@ -130,12 +137,18 @@ class QuicConnection:
             if packet:
                 self.handle_received_packet(packet)
 
-    def handle_received_packet(self, packet: bytes):
+    def handle_received_packet2(self, packet: bytes):  # deprecated?
         unpacked_packet = Packet.unpack(packet)
         frames_in_packet_dict = unpacked_packet.get_payload_frames_dict()
         for stream_id in frames_in_packet_dict.keys():
             if self._is_stream_in_dict(stream_id):
                 self.streams[stream_id].receive_frame(frames_in_packet_dict.get(stream_id))
+
+    def handle_received_packet(self, packet: bytes):
+        unpacked_packet = Packet.unpack(packet)
+        frames_in_packet_dict = unpacked_packet.get_payload_frames_dict()
+        for stream_id in frames_in_packet_dict.keys():
+            self.add_stream_by_id(stream_id).receive_frame(frames_in_packet_dict.get(stream_id))
 
 
 # Example usage

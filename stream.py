@@ -13,18 +13,13 @@ FILE = 'a.txt'
 
 
 class Stream:
-    def __init__(self, stream_id, initiated_by, direction):
+    def __init__(self, stream_id):
         """
         Initialize a Stream instance.
 
         Args:
-            stream_id (int): Unique identifier for the stream. 2MSB are 11, 62 usable bits, 8-bytes total.
-            initiated_by (int): Indicates whether the stream was initiated by client(0) or server(1).
-            direction (int): Indicates if the stream is bidirectional(0) or unidirectional(1)
-        """
+            stream_id (int): Unique identifier for the stream. 2MSB are 11(???), 62 usable bits, 8-bytes total."""
         self.stream_id = stream_id
-        self.initiated_by = initiated_by  # 'client' or 'server'
-        self.direction = direction
         self.sender = StreamSender(stream_id)
         self.receiver = StreamReceiver(stream_id)
         self.lock = threading.Lock()
@@ -40,11 +35,10 @@ class Stream:
 
     def generate_stream_frames(self, max_size: int):
         """
-       Retrieve a list of all frames required for the data, depends on size of the data and size of a packet..
+       Retrieve a list of all frames required for the data, depends on size of the data and size of a packet.
 
-       Args:
-           payload_size (int): The size of the payload_size is determined by size of payload-packet/num of streams on that packet
-               calculation will be in quic.py
+       Args: max_size (int): The size of the payload_size is determined by size of payload-packet/num of streams on
+       that packet calculation will be in quic.py
 
         Delegates stream frames generation to StreamSender"""
         self.sender.generate_stream_frames(max_size)
@@ -63,6 +57,7 @@ class Stream:
         return self.receiver.read_data()
 
     def receive_frame(self, frame):
+        print("processing received frame")
         self.receiver.stream_frame_recvd(FrameStream.decode(frame))
 
     def is_finished(self):
@@ -73,86 +68,6 @@ class Stream:
             bool: True if the stream has no more data to transmit, False otherwise.
         """
         pass
-
-
-class StreamManager:
-    def __init__(self):
-        """
-        Initialize a StreamManager instance.
-        """
-        self.streams = {}
-        self.lock = threading.Lock()
-
-    def create_stream(self, stream_id, initiated_by, direction):
-        """
-        Create a new stream.
-
-        Args:
-            stream_id (int): Unique identifier for the stream.
-            initiated_by (int): Indicates whether the stream was initiated by 'client' or 'server'.
-            direction (int): Indicates if the stream is bidirectional. Default is True.
-
-        Returns:
-            Stream: The created stream instance.
-        """
-        with self.lock:
-            if stream_id not in self.streams:
-                self.streams[stream_id] = Stream(stream_id, initiated_by, direction)
-            return self.streams[stream_id]
-
-    def get_stream(self, stream_id):
-        """
-        Retrieve a stream by its identifier.
-
-        Args:
-            stream_id (int): Unique identifier for the stream.
-
-        Returns:
-            Stream: The retrieved stream instance or None if not found.
-        """
-        with self.lock:
-            return self.streams.get(stream_id, None)
-
-    def add_data_to_stream(self, stream_id, data):
-        """
-        Add data to a specific stream.
-
-        Args:
-            stream_id (int): Unique identifier for the stream.
-            data (bytes): Data to be added to the stream.
-        """
-        stream = self.get_stream(stream_id)
-        if stream:
-            stream.write(data)
-
-    def get_next_frame(self, stream_id, frame_size):
-        """
-        Retrieve the next frame of data from a specific stream.
-
-        Args:
-            stream_id (int): Unique identifier for the stream.
-            frame_size (int): The size of the frame to retrieve.
-
-        Returns:
-            tuple: A tuple containing the stream ID and the retrieved frame data.
-        """
-        stream = self.get_stream(stream_id)
-        if stream and not stream.is_finished():
-            chunk = stream.get_stream_frames_to_send(frame_size)
-            if chunk:
-                return (stream_id, chunk)
-        return None
-
-    def reset_stream(self, stream_id):
-        """
-        Reset a specific stream.
-
-        Args:
-            stream_id (int): Unique identifier for the stream.
-        """
-        stream = self.get_stream(stream_id)
-        if stream:
-            stream.reset()
 
 
 class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
@@ -168,11 +83,6 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
 
     def is_ready_state(self) -> bool:
         return self._state == READY
-
-    def _read_file(self, file_path):
-        with open(FILE, 'rb') as file:
-            while data := file.read(1024):
-                self.write_data(data)
 
     def write_data(self, data: bytes):
         if self._state == READY:
@@ -255,8 +165,10 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         for data in self.recv_buffer_dict.values():
             with self.lock:
                 self.recv_buffer += data
+        self._write_file()
 
     def _write_file(self):
+        print("writing the file")
         with open(r'C:\Users\rodki\recv', 'wb') as file:
             while not self.fin_recvd:
                 if self._state == DATA_RECVD:
