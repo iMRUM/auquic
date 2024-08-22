@@ -77,14 +77,14 @@ class Packet:
 
     @classmethod
     def unpack(cls, packet_bytes: bytes) -> 'Packet':
-        print(':L79: unpacking')
+        #print(':L79: unpacking')
         # ignore the header
         packet_number_length = PacketHeader.unpack(packet_bytes[0:1]).packet_number_length
         # print(f'Packet Number Length: {packet_number_length}')
         destination_connection_id = int.from_bytes(packet_bytes[1:9], 'big')
         # print(f'Destination Connection ID: {destination_connection_id}')
         packet_number = int.from_bytes(packet_bytes[9:13], 'big')
-        print(f'Packet Number: {packet_number}')
+        #print(f'Packet Number: {packet_number}')
         payload_frames = Packet.get_frames_from_payload_bytes(packet_bytes[13:])
         # print(f'{payload_frames}')
         # print(f'Expected Payload Start: {13}')

@@ -23,7 +23,6 @@ class Stream:
         self.stream_id = stream_id
         self.sender = StreamSender(stream_id)
         self.receiver = StreamReceiver(stream_id)
-        self.lock = threading.Lock()
 
     def write(self, data: bytes):  # sending part
         """
@@ -80,7 +79,6 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         self.fin_sent = False
         self._state = READY
         self.stream_frames: list[FrameStream] = []
-        self.lock = threading.Lock()
 
     def is_ready_state(self) -> bool:
         return self._state == READY
@@ -90,8 +88,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
 
     def write_data(self, data: bytes):
         if self._state == READY:
-            with self.lock:
-                self.send_buffer += data
+            self.send_buffer += data
         else:
             raise ValueError("ERROR: cannot write. stream is not Ready.")
 
@@ -119,13 +116,11 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
                                  final_size=self.send_offset + 1)
 
     def send_next_frame(self) -> 'FrameStream':
-        with self.lock:
-            self._state = SEND
+        self._state = SEND
         if self.stream_frames:
             frame = self.stream_frames.pop(0)
             if frame.fin:
-                with self.lock:
-                    self._state = DATA_SENT
+                self._state = DATA_SENT
             return frame
 
 
@@ -138,7 +133,6 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self._state = RECV
         self.fin_recvd = False
         self._is_ready = True
-        self.lock = threading.Lock()
 
     def read_data(self) -> bytes:
         if self._is_ready:
@@ -168,23 +162,6 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
 
     def _convert_dict_to_buffer(self):  # the dict is already sorted by offsets so just add them tandem
         for data in self.recv_buffer_dict.values():
-            with self.lock:
-                self.recv_buffer += data
-        time.sleep(3)
-        print('sleep for 3 secs')
+            self.recv_buffer += data
 
-    def _write_file(self):
-        print("writing the file")
-        with open(r'C:\Users\rodki\recv\lessgo.txt', 'wb') as file:
-            while not self.fin_recvd:
-                if self._state == DATA_RECVD:
-                    break
-            file.write(self.recv_buffer)
-            file.close()
-        self._state = DATA_READ
 
-    def _read_file(self):
-        with open('a.txt', 'rb') as file:
-            data = file.read()
-        file.close()
-        return data
