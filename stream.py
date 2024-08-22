@@ -1,4 +1,5 @@
 import threading
+import time
 from typing import Optional
 
 from _frame import FrameStream, FrameReset_Stream, FrameStop_Sending
@@ -43,7 +44,7 @@ class Stream:
         Delegates stream frames generation to StreamSender"""
         self.sender.generate_stream_frames(max_size)
 
-    def send_next_frame(self):
+    def send_next_frame(self) -> 'FrameStream':
         """Delegates next frame sending to StreamSender"""
         return self.sender.send_next_frame()
 
@@ -141,6 +142,7 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
 
     def read_data(self) -> bytes:
         if self._is_ready:
+            self._convert_dict_to_buffer()
             return self.recv_buffer
         else:
             raise ValueError("ERROR: cannot read. stream is closed.")
@@ -168,14 +170,21 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         for data in self.recv_buffer_dict.values():
             with self.lock:
                 self.recv_buffer += data
-        self._write_file()
+        time.sleep(3)
+        print('sleep for 3 secs')
 
     def _write_file(self):
         print("writing the file")
-        with open(r'C:\Users\rodki\recv', 'wb') as file:
+        with open(r'C:\Users\rodki\recv\lessgo.txt', 'wb') as file:
             while not self.fin_recvd:
                 if self._state == DATA_RECVD:
                     break
             file.write(self.recv_buffer)
             file.close()
         self._state = DATA_READ
+
+    def _read_file(self):
+        with open('a.txt', 'rb') as file:
+            data = file.read()
+        file.close()
+        return data

@@ -1,6 +1,7 @@
 import struct
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from sys import getsizeof
 
 TYPE_FIELD = 0x08
 OFF_BIT = 0x04
@@ -75,12 +76,12 @@ class FrameStream(StreamFrameABC):
         encoded_frame = type_field.to_bytes(1, 'big')  # type is byte[0]
         for v in values:
             encoded_frame += v
+        # print(f'size in bytes{getsizeof(encoded_frame)}')
         return encoded_frame
 
     @classmethod
     def decode(cls, frame: bytes):
-        offset, length, fin, stream_id, index = FrameStream.decode_first_part(frame)
-        stream_data = frame[index:]
+        offset, length, fin, stream_id, index, stream_data = FrameStream.decode_first_part(frame)
         return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
 
     @classmethod
@@ -103,7 +104,17 @@ class FrameStream(StreamFrameABC):
         # Check if the FIN bit is set
         if type_field & FIN_BIT:
             fin = True
-        return offset, length, fin, stream_id, index
+        return offset, length, fin, stream_id, index, frame[index:]
+
+    @staticmethod
+    def end_of_data_index(frame: bytes) -> int:
+        end_of_data = 9
+        type_field = int.from_bytes(frame[0:1], 'big')
+        if type_field & OFF_BIT:
+            end_of_data += 8
+        if type_field & LEN_BIT:
+            end_of_data += 8
+        return end_of_data
 
 
 @dataclass

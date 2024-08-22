@@ -1,9 +1,12 @@
 import threading
 import socket
 import random
+from typing import Optional
+
 from packet import Packet, PacketHeader
 from stream import Stream
 from sys import getsizeof
+from _frame import FrameStream
 
 PACKET_SIZE = 1024
 
@@ -77,8 +80,12 @@ class QuicConnection:
             for stream in list(self.streams.values()):
                 stream.generate_stream_frames(max_size=PACKET_SIZE // 5)
 
-    def _get_random_stream_from_streams(self):
-        return random.choice(list(self.streams.values()))
+    def _get_random_stream_from_streams(self) -> Optional['FrameStream']:
+        try:
+            return random.choice(list(self.streams.values()))
+        except IndexError:
+            print("No more streams!")
+            return None
 
     def create_packet2(self):
         self._generate_streams_frames()
@@ -95,21 +102,25 @@ class QuicConnection:
         self._generate_streams_frames()
         with self.lock:
             remaining_space = PACKET_SIZE
-            # p = Packet(packet_header, CONNECTION_ID, self._packets_counter)
             if packet := Packet(int(not self.connection_id), self._packets_counter):
                 remaining_space -= getsizeof(packet)
-                for i in range(5):  # arbitrary amount of iterations
-                    if len(self.streams) > 0:
+                while remaining_space > 0:
+                    if self._pending_frames:
+                        frame = self._pending_frames.pop(0)
+                    else:
                         if stream := self._get_random_stream_from_streams():
-                            if frame := stream.send_next_frame():
-                                size_of_frame = getsizeof(frame)
-                                if size_of_frame <= remaining_space:
-                                    packet.add_frame(frame)
-                                    remaining_space -= size_of_frame
-                                else:
-                                    self._pending_frames.append(frame)
+                            frame = stream.send_next_frame()
                             if stream.sender.is_data_sent_state():
                                 print(f"{self.streams.pop(stream.stream_id)} was popped!")
+                        else:
+                            break
+                    size_of_frame = getsizeof(frame.encode())
+                    if size_of_frame <= remaining_space:
+                        packet.add_frame(frame)
+                        remaining_space -= size_of_frame
+                    else:
+                        self._pending_frames.append(frame)
+                        remaining_space = 0
                 self._packets_counter += 1
                 return packet
             else:
@@ -139,19 +150,46 @@ class QuicConnection:
             print("receive")
             self.receive_packet()
         print("not receive")
+        self._write_file()
 
     def receive_packet(self):
-        with self.lock:
+        self.socket.settimeout(5)  # 5-second timeout
+        try:
             packet, addr = self.socket.recvfrom(PACKET_SIZE)
-            if packet:
-                self.handle_received_packet(packet)
+            print(':L148: packet is true')
+            self.handle_received_packet(packet)
+            print('receive_packet')
+        except socket.timeout:
+            print("Timeout: No data received.")
+        finally:
+            self.close_connection()
 
     def handle_received_packet(self, packet: bytes):
+        print(':L152: handle_received_packet')
         unpacked_packet = Packet.unpack(packet)
+        print(f':L154: unpacked_packet: {unpacked_packet}')
         frames_in_packet = unpacked_packet.payload
         for frame in frames_in_packet:
             if self._is_stream_in_dict(frame.stream_id):
                 self.streams[frame.stream_id].receive_frame(frame)
+
+    def _write_file(self):
+        print("writing the files")
+        for stream in self.streams.values():
+            print(f'writing stream{stream.stream_id}')
+            with open(f'{stream.stream_id}', 'wb') as file:
+                file.write(stream.receiver.read_data())
+                file.close()
+                # stream.receiver._state = DATA_READ
+                print('file is written')
+        print('finished')
+
+    def _read_file(self):
+        with open('a.txt', 'rb') as file:
+            data = file.read()
+        file.close()
+        return data
+
 
 # Example usage
 if __name__ == "__main__":

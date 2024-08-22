@@ -50,7 +50,8 @@ class PacketHeader:  # total 1 byte
         reserved_bits = int.from_bytes(header, "big") >> 3 & TWO  # 2 bits
         key_phase = int.from_bytes(header, "big") >> 2 & ONE  # 1 bit
         packet_number_length = int.from_bytes(header,
-                                              'big') & PACKET_NUMBER_LENGTH  # 2 bits, one less than the length of the Packet Number field in bytes
+                                              'big') & PACKET_NUMBER_LENGTH  # 2 bits, one less than the length of
+        # the Packet Number field in bytes
         return PacketHeader(header_form=header_form, fixed_bit=fixed_bit, spin_bit=spin_bit,
                             reserved_bits=reserved_bits, key_phase=key_phase, packet_number_length=packet_number_length)
 
@@ -76,12 +77,17 @@ class Packet:
 
     @classmethod
     def unpack(cls, packet_bytes: bytes) -> 'Packet':
+        print(':L79: unpacking')
         # ignore the header
         packet_number_length = PacketHeader.unpack(packet_bytes[0:1]).packet_number_length
+        print(f'Packet Number Length: {packet_number_length}')
         destination_connection_id = int.from_bytes(packet_bytes[1:9], 'big')
+        print(f'Destination Connection ID: {destination_connection_id}')
         packet_number = int.from_bytes(packet_bytes[9:9 + packet_number_length + 1], 'big')
+        print(f'Packet Number: {packet_number}')
         payload_frames = Packet.get_frames_from_payload_bytes(packet_bytes[9 + packet_number_length + 1:])
-
+        print(f'{payload_frames}')
+        print(f'Expected Payload Start: {9 + packet_number_length + 1}')
         return Packet(
             destination_connection_id=destination_connection_id,
             packet_number=packet_number,
@@ -90,13 +96,14 @@ class Packet:
 
     @staticmethod
     def get_frames_from_payload_bytes(payload_bytes: bytes) -> list[FrameStream]:
+        print(f'payload_bytes: {payload_bytes}')
         index = 0
         frames: list[FrameStream] = []
         while index < len(payload_bytes):
-            offset, length, fin, stream_id, index = FrameStream.decode_first_part(payload_bytes)  # first frame info
-            data = payload_bytes[index:index + offset + length]
-            index += offset + length
-            frames.append(FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=data))
+            # print(f'index is {index}') maybe cast type to int????
+            length_to_add = FrameStream.end_of_data_index(payload_bytes[index:index + 1])
+            frames.append(FrameStream.decode(payload_bytes[index:index+length_to_add]))
+            index += length_to_add
         return frames
 
     @staticmethod

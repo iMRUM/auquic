@@ -15,7 +15,7 @@ FILE_B = 'b.txt'
 
 def _read_file(file_path):
     with open(file_path, 'rb') as file:
-        data = file.read(1024)
+        data = file.read()
     file.close()
     return data
 
