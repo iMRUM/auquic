@@ -80,14 +80,14 @@ class Packet:
         print(':L79: unpacking')
         # ignore the header
         packet_number_length = PacketHeader.unpack(packet_bytes[0:1]).packet_number_length
-        print(f'Packet Number Length: {packet_number_length}')
+        # print(f'Packet Number Length: {packet_number_length}')
         destination_connection_id = int.from_bytes(packet_bytes[1:9], 'big')
-        print(f'Destination Connection ID: {destination_connection_id}')
+        # print(f'Destination Connection ID: {destination_connection_id}')
         packet_number = int.from_bytes(packet_bytes[9:13], 'big')
         print(f'Packet Number: {packet_number}')
         payload_frames = Packet.get_frames_from_payload_bytes(packet_bytes[13:])
-        print(f'{payload_frames}')
-        print(f'Expected Payload Start: {13}')
+        # print(f'{payload_frames}')
+        # print(f'Expected Payload Start: {13}')
         return Packet(
             destination_connection_id=destination_connection_id,
             packet_number=packet_number,
@@ -96,17 +96,15 @@ class Packet:
 
     @staticmethod
     def get_frames_from_payload_bytes(payload_bytes: bytes) -> list[FrameStream]:
-        print(f'payload_bytes: {payload_bytes}')
+        # print(f'payload_bytes: {payload_bytes}')
         index = 0
         frames: list[FrameStream] = []
         while index < len(payload_bytes):
             end_of_attrs = FrameStream.end_of_attrs(payload_bytes[index:index + 1])
-            """if end_of_attrs < 17: #len is 0, the rest of packet is of the same frame
-                frames.append(FrameStream.decode(payload_bytes[index:]))
-                break"""
-            length_of_frame = FrameStream.length_from_attrs(payload_bytes[index:index + end_of_attrs])
-            frames.append(FrameStream.decode(payload_bytes[index:index+length_of_frame])) # all but data
-            index += length_of_frame
+            length_of_frame_data = FrameStream.length_from_attrs(payload_bytes[index:index + end_of_attrs],
+                                                                 end_of_attrs)
+            frames.append(FrameStream.decode(payload_bytes[index:index + length_of_frame_data]))
+            index += length_of_frame_data
         return frames
 
     @staticmethod

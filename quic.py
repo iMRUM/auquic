@@ -27,7 +27,7 @@ class QuicConnection:
         self.lock = threading.Lock()
         self._pending_packets = []
         self._packets_counter = 0
-        self._pending_frames = []
+        self._pending_frames: list['Stream'] = []
         self._retrieved_packets = []
 
     def close_connection(self):
@@ -80,12 +80,11 @@ class QuicConnection:
             for stream in list(self.streams.values()):
                 stream.generate_stream_frames(max_size=PACKET_SIZE // 5)
 
-    def _get_random_stream_from_streams(self) -> Optional['FrameStream']:
+    def _get_random_stream_from_streams(self) -> 'Stream':
         try:
             return random.choice(list(self.streams.values()))
         except IndexError:
             print("No more streams!")
-            return None
 
     def create_packet2(self):
         self._generate_streams_frames()
@@ -146,28 +145,30 @@ class QuicConnection:
                 print(f"Sending packet {packet}")
 
     def receive_packets(self):
+        while True:
+            self._receive_packets()
+
+    def receive_packets2(self):
         while self.socket.fileno() >= 0:  # while socket is not closed
             print("receive")
-            self.receive_packet()
+            self._receive_packets()
         print("not receive")
         self._write_file()
 
-    def receive_packet(self):
-        self.socket.settimeout(15)  # 5-second timeout
+    def _receive_packets(self):
+        self.socket.settimeout(60)  # 60-second timeout
         try:
             packet, addr = self.socket.recvfrom(PACKET_SIZE)
-            print(':L148: packet is true')
+           # print(':L148: packet is true')
             self.handle_received_packet(packet)
-            print('receive_packet')
+            #print('receive_packet')
         except socket.timeout:
             print("Timeout: No data received.")
-        finally:
-            self.close_connection()
+            self._write_file()
 
     def handle_received_packet(self, packet: bytes):
-        print(':L152: handle_received_packet')
         unpacked_packet = Packet.unpack(packet)
-        print(f':L154: unpacked_packet: {unpacked_packet}')
+        #print(f':L154: unpacked_packet: {unpacked_packet}')
         frames_in_packet = unpacked_packet.payload
         for frame in frames_in_packet:
             if self._is_stream_in_dict(frame.stream_id):

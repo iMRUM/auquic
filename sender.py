@@ -29,7 +29,7 @@ def main():
     quic_connection = QuicConnection(connection_id, LOCAL_ADDRESS, REMOTE_ADDRESS)
     # Add two streams for the files
     stream1 = quic_connection.add_stream(initiated_by=connection_id, direction=0).stream_id
-    stream2 = quic_connection.add_stream(initiated_by=connection_id, direction=1).stream_id
+    # stream2 = quic_connection.add_stream(initiated_by=connection_id, direction=1).stream_id
     quic_connection.add_data_to_stream(stream1, _read_file(FILE_A))
     send_file(quic_connection)
 

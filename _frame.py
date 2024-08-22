@@ -85,26 +85,6 @@ class FrameStream(StreamFrameABC):
         return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
 
     @classmethod
-    def _decode_type(cls, bytes_type: bytes):
-        int_type = int.from_bytes(bytes_type, "big")
-        if int_type == 0x08:
-            offset = 0
-            length = 0
-            fin = False
-        if int_type == 0x09:
-            offset = 0
-            length = 0
-            fin = False
-        if int_type == 0x0A:
-            offset = 0
-            length = 0
-            fin = False
-        if int_type == 0x0B:
-            offset = 0
-            length = 0
-            fin = False
-
-    @classmethod
     def _decode(cls, frame: bytes):
         offset = 0
         length = 0
@@ -137,9 +117,12 @@ class FrameStream(StreamFrameABC):
         return end_of_data
 
     @staticmethod
-    def length_from_attrs(frame: bytes):
-        length = int.from_bytes(frame[17:24])
-        return length + 25
+    def length_from_attrs(frame: bytes, end_of_attrs: int):
+        if end_of_attrs <= 9:
+            return 0
+        if end_of_attrs <= 17:
+            return int.from_bytes(frame[9:17], "big")
+        return int.from_bytes(frame[17:25], "big")
 
 
 @dataclass
