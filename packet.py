@@ -103,8 +103,8 @@ class Packet:
             end_of_attrs = FrameStream.end_of_attrs(payload_bytes[index:index + 1])
             length_of_frame_data = FrameStream.length_from_attrs(payload_bytes[index:index + end_of_attrs],
                                                                  end_of_attrs)
-            frames.append(FrameStream.decode(payload_bytes[index:index + length_of_frame_data]))
-            index += length_of_frame_data
+            frames.append(FrameStream.decode(payload_bytes[index:index + end_of_attrs + length_of_frame_data]))
+            index += end_of_attrs + length_of_frame_data
         return frames
 
     @staticmethod

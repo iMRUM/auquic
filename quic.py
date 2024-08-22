@@ -1,6 +1,7 @@
 import threading
 import socket
 import random
+import time
 from typing import Optional
 
 from packet import Packet, PacketHeader
@@ -141,7 +142,8 @@ class QuicConnection:
             self._receive_packets()
 
     def _receive_packets(self):
-        self.socket.settimeout(60)  # 60-second timeout
+        time.sleep(5)
+        self.socket.settimeout(0.01)  # 60-second timeout
         try:
             packet, addr = self.socket.recvfrom(PACKET_SIZE)
            # print(':L148: packet is true')
