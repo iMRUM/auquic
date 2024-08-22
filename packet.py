@@ -1,7 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 import struct
-from _frame import FrameStream
+from _frame import FrameStream, StreamFrameABC
+from sys import getsizeof
 
 PACKET_NUMBER_LENGTH = 0x03
 FORM = 0b10000000
@@ -56,52 +57,60 @@ class PacketHeader:  # total 1 byte
 
 @dataclass
 class Packet:
-    header: PacketHeader
     destination_connection_id: int  # Variable length (let's assume 8 bytes in this example)
     packet_number: int  # Variable length
-    payload: bytes = b''  # Payload (variable length)
+    # payload: bytes = b''  # Payload (variable length)
+    payload: list[FrameStream] = field(default_factory=list)
 
     def pack(self) -> bytes:
         # Pack the header
-        packed_header = self.header.pack()
+        packed_header = PacketHeader(getsizeof(self.packet_number) - 1).pack()
         # Assume Destination Connection ID is 8 bytes(according to RFC it's 0-20bytes)
         dest_connection_id_bytes = self.destination_connection_id.to_bytes(8, 'big')
         # Pack the Packet Number based on its length field+1
-        packet_number_bytes = self.packet_number.to_bytes(self.header.packet_number_length + 1, 'big')
-        return packed_header + dest_connection_id_bytes + packet_number_bytes + self.payload
+        packet_number_bytes = self.packet_number.to_bytes(getsizeof(self.packet_number), 'big')
+        packed_packet: bytes = packed_header + dest_connection_id_bytes + packet_number_bytes
+        for frame in self.payload:
+            packed_packet += frame.encode()
+        return packed_packet
 
-    @staticmethod
-    def unpack(packet_bytes: bytes) -> 'Packet':
-        # Unpack the header
-        header = PacketHeader.unpack(packet_bytes[0:1])
+    @classmethod
+    def unpack(cls, packet_bytes: bytes) -> 'Packet':
+        # ignore the header
+        packet_number_length = PacketHeader.unpack(packet_bytes[0:1]).packet_number_length
         destination_connection_id = int.from_bytes(packet_bytes[1:9], 'big')
-        packet_number = int.from_bytes(packet_bytes[9:9 + header.packet_number_length + 1], 'big')
-        payload = packet_bytes[9 + header.packet_number_length + 1:]
+        packet_number = int.from_bytes(packet_bytes[9:9 + packet_number_length + 1], 'big')
+        payload_frames = Packet.get_frames_from_payload_bytes(packet_bytes[9 + packet_number_length + 1:])
 
         return Packet(
-            header=header,
             destination_connection_id=destination_connection_id,
             packet_number=packet_number,
-            payload=payload
+            payload=payload_frames
         )
 
-    def get_payload_frames_dict(self) -> dict:
+    @staticmethod
+    def get_frames_from_payload_bytes(payload_bytes: bytes) -> list[FrameStream]:
         index = 0
-        frames_dict = {}
-        while index < len(self.payload):
-            frame_total_length = 9  # in bytes
-            type_byte_int = int.from_bytes(self.payload[index:index + 1], 'big')  # type of first frame
-            stream_id_int = int.from_bytes(self.payload[index + 1:index + 9], 'big')  # stream_id of first frame
-            if type_byte_int & OFF_BIT:  # off bit is 1 [9:17]
-                frame_total_length += 8
-            if type_byte_int & LEN_BIT:  # len bit is 1 [17:25]
-                frame_total_length += 8 + int.from_bytes(self.payload[17:25])  # len field + data
-            curr_frame = self.payload[index: index + frame_total_length]
-            frames_dict[stream_id_int] = curr_frame
-            index += frame_total_length
-        return frames_dict
+        frames: list[FrameStream] = []
+        while index < len(payload_bytes):
+            offset, length, fin, stream_id, index = FrameStream.decode_first_part(payload_bytes)  # first frame info
+            data = payload_bytes[index:index + offset + length]
+            index += offset + length
+            frames.append(FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=data))
+        return frames
 
-    def add_frame(self, frame: bytes):
+    @staticmethod
+    def stream_frame_min_length_by_type(type_frame: bytes) -> int:
+        type_int = int.from_bytes(type_frame, 'big')
+        length = 9
+        if type_int & OFF_BIT:
+            length += 8
+        # Check if the length is present
+        if type_int & LEN_BIT:
+            length += 8
+        return length
+
+    def add_frame(self, frame: 'FrameStream'):
         """
         Add a frame to the packet.
         while index < len(self.payload):
@@ -115,4 +124,4 @@ class Packet:
         Args:
             frame (bytes): The frame to be added as bytes.
         """
-        self.payload += frame
+        self.payload.append(frame)

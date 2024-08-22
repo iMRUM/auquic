@@ -48,12 +48,12 @@ class FrameMax_Streams(_Frame):  # Type (i) = 0x12..0x13 (from RFC-9000)
 
 
 @dataclass
-class _StreamFrame(ABC):
+class StreamFrameABC(ABC):
     stream_id: int
 
 
 @dataclass
-class FrameStream(_StreamFrame):
+class FrameStream(StreamFrameABC):
     offset: int  # "The largest offset delivered on a stream -- the sum of the offset and data length -- cannot exceed
     # 2^62-1" (RFC),so we will use 8-byte
     length: int  # same as offset
@@ -79,6 +79,12 @@ class FrameStream(_StreamFrame):
 
     @classmethod
     def decode(cls, frame: bytes):
+        offset, length, fin, stream_id, index = FrameStream.decode_first_part(frame)
+        stream_data = frame[index:]
+        return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
+
+    @classmethod
+    def decode_first_part(cls, frame: bytes):
         offset = 0
         length = 0
         fin = False
@@ -97,15 +103,11 @@ class FrameStream(_StreamFrame):
         # Check if the FIN bit is set
         if type_field & FIN_BIT:
             fin = True
-        stream_data = frame[index:]
-        return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
-
-    def get_stream_frame(self):
-        return self.encode()
+        return offset, length, fin, stream_id, index
 
 
 @dataclass
-class FrameReset_Stream(_StreamFrame):
+class FrameReset_Stream(StreamFrameABC):
     application_protocol_error_code: int
     final_size: int
     type = 0x04
@@ -119,7 +121,7 @@ class FrameReset_Stream(_StreamFrame):
 
 
 @dataclass
-class FrameStop_Sending(_StreamFrame):
+class FrameStop_Sending(StreamFrameABC):
     application_protocol_error_code: int
     type = 0x05
 
@@ -132,7 +134,7 @@ class FrameStop_Sending(_StreamFrame):
 
 
 @dataclass
-class FrameMax_Stream_Data(_StreamFrame):
+class FrameMax_Stream_Data(StreamFrameABC):
     maximum_stream_data: int
     type = 0x11
 
@@ -145,7 +147,7 @@ class FrameMax_Stream_Data(_StreamFrame):
 
 
 @dataclass
-class FrameStream_Data_Blocked(_StreamFrame):
+class FrameStream_Data_Blocked(StreamFrameABC):
     maximum_stream_data: int
     type = 0x15
 

@@ -58,7 +58,7 @@ class Stream:
 
     def receive_frame(self, frame):
         print("processing received frame")
-        self.receiver.stream_frame_recvd(FrameStream.decode(frame))
+        self.receiver.stream_frame_recvd(frame)
 
     def is_finished(self):
         """
@@ -84,6 +84,9 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
     def is_ready_state(self) -> bool:
         return self._state == READY
 
+    def is_data_sent_state(self) -> bool:
+        return self._state == DATA_SENT
+
     def write_data(self, data: bytes):
         if self._state == READY:
             with self.lock:
@@ -101,8 +104,9 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         self.stream_frames.append(self.generate_fin_frame())
 
     def generate_fin_frame(self) -> FrameStream:
+        self._state = DATA_SENT
         return FrameStream(stream_id=self.stream_id, offset=self.send_offset,
-                           length=len(self.send_buffer) - self.send_offset,
+                           length=len(self.send_buffer[self.send_offset:]),
                            fin=True,
                            data=self.send_buffer[
                                 self.send_offset:])  # last frame is the rest of the buffer with FIN bit
@@ -113,7 +117,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         return FrameReset_Stream(stream_id=self.stream_id, application_protocol_error_code=1,
                                  final_size=self.send_offset + 1)
 
-    def send_next_frame(self) -> Optional[bytes]:
+    def send_next_frame(self) -> 'FrameStream':
         with self.lock:
             self._state = SEND
         if self.stream_frames:
@@ -121,7 +125,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
             if frame.fin:
                 with self.lock:
                     self._state = DATA_SENT
-            return frame.encode()
+            return frame
 
 
 class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
@@ -151,9 +155,8 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
 
     def _fin_recvd(self, frame: FrameStream):
         self.fin_recvd = True
-        if self.curr_offset == frame.offset + len(frame.data):  # it is indeed the last frame
-            self._state = DATA_RECVD
-            self._convert_dict_to_buffer()
+        self._state = DATA_RECVD
+        self._convert_dict_to_buffer()
 
     def _generate_stop_sending_frame(self) -> FrameStop_Sending:  # will return STOP_SENDING frame
         return FrameStop_Sending(stream_id=self.stream_id, application_protocol_error_code=1)

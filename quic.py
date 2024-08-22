@@ -27,6 +27,10 @@ class QuicConnection:
         self._pending_frames = []
         self._retrieved_packets = []
 
+    def close_connection(self):
+        self.socket.close()
+        print("socket is closed")
+
     def add_stream(self, initiated_by, direction) -> 'Stream':
         """
         Add a new stream to the connection.
@@ -90,21 +94,22 @@ class QuicConnection:
         """
         self._generate_streams_frames()
         with self.lock:
-            packet_header = PacketHeader(
-                (self._packets_counter - 1).bit_length())  # as of rfc9000.html#name-1-rtt-packet
             remaining_space = PACKET_SIZE
             # p = Packet(packet_header, CONNECTION_ID, self._packets_counter)
-            if packet := Packet(packet_header, int(not self.connection_id), self._packets_counter):
+            if packet := Packet(int(not self.connection_id), self._packets_counter):
                 remaining_space -= getsizeof(packet)
                 for i in range(5):  # arbitrary amount of iterations
-                    if stream := self._get_random_stream_from_streams():
-                        if frame := stream.send_next_frame():
-                            size_of_frame = getsizeof(frame)
-                            if size_of_frame <= remaining_space:
-                                packet.add_frame(frame)
-                                remaining_space -= size_of_frame
-                            else:
-                                self._pending_frames.append(frame)
+                    if len(self.streams) > 0:
+                        if stream := self._get_random_stream_from_streams():
+                            if frame := stream.send_next_frame():
+                                size_of_frame = getsizeof(frame)
+                                if size_of_frame <= remaining_space:
+                                    packet.add_frame(frame)
+                                    remaining_space -= size_of_frame
+                                else:
+                                    self._pending_frames.append(frame)
+                            if stream.sender.is_data_sent_state():
+                                print(f"{self.streams.pop(stream.stream_id)} was popped!")
                 self._packets_counter += 1
                 return packet
             else:
@@ -121,6 +126,8 @@ class QuicConnection:
             packet = self.create_packet()
             if not getsizeof(packet.payload) == getsizeof(b''):
                 self.send_packet(packet)
+        self.close_connection()
+        print('closing connection')
 
     def send_packet(self, packet: Packet):
         with self.lock:
@@ -139,19 +146,12 @@ class QuicConnection:
             if packet:
                 self.handle_received_packet(packet)
 
-    def handle_received_packet2(self, packet: bytes):  # deprecated?
-        unpacked_packet = Packet.unpack(packet)
-        frames_in_packet_dict = unpacked_packet.get_payload_frames_dict()
-        for stream_id in frames_in_packet_dict.keys():
-            if self._is_stream_in_dict(stream_id):
-                self.streams[stream_id].receive_frame(frames_in_packet_dict.get(stream_id))
-
     def handle_received_packet(self, packet: bytes):
         unpacked_packet = Packet.unpack(packet)
-        frames_in_packet_dict = unpacked_packet.get_payload_frames_dict()
-        for stream_id in frames_in_packet_dict.keys():
-            self.add_stream_by_id(stream_id).receive_frame(frames_in_packet_dict.get(stream_id))
-
+        frames_in_packet = unpacked_packet.payload
+        for frame in frames_in_packet:
+            if self._is_stream_in_dict(frame.stream_id):
+                self.streams[frame.stream_id].receive_frame(frame)
 
 # Example usage
 if __name__ == "__main__":
