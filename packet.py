@@ -69,7 +69,7 @@ class Packet:
         # Assume Destination Connection ID is 8 bytes(according to RFC it's 0-20bytes)
         dest_connection_id_bytes = self.destination_connection_id.to_bytes(8, 'big')
         # Pack the Packet Number based on its length field+1
-        packet_number_bytes = self.packet_number.to_bytes(getsizeof(self.packet_number), 'big')
+        packet_number_bytes = self.packet_number.to_bytes(4, 'big')
         packed_packet: bytes = packed_header + dest_connection_id_bytes + packet_number_bytes
         for frame in self.payload:
             packed_packet += frame.encode()
@@ -83,11 +83,11 @@ class Packet:
         print(f'Packet Number Length: {packet_number_length}')
         destination_connection_id = int.from_bytes(packet_bytes[1:9], 'big')
         print(f'Destination Connection ID: {destination_connection_id}')
-        packet_number = int.from_bytes(packet_bytes[9:9 + packet_number_length + 1], 'big')
+        packet_number = int.from_bytes(packet_bytes[9:13], 'big')
         print(f'Packet Number: {packet_number}')
-        payload_frames = Packet.get_frames_from_payload_bytes(packet_bytes[9 + packet_number_length + 1:])
+        payload_frames = Packet.get_frames_from_payload_bytes(packet_bytes[13:])
         print(f'{payload_frames}')
-        print(f'Expected Payload Start: {9 + packet_number_length + 1}')
+        print(f'Expected Payload Start: {13}')
         return Packet(
             destination_connection_id=destination_connection_id,
             packet_number=packet_number,
@@ -100,22 +100,25 @@ class Packet:
         index = 0
         frames: list[FrameStream] = []
         while index < len(payload_bytes):
-            # print(f'index is {index}') maybe cast type to int????
-            length_to_add = FrameStream.end_of_data_index(payload_bytes[index:index + 1])
-            frames.append(FrameStream.decode(payload_bytes[index:index+length_to_add]))
-            index += length_to_add
+            end_of_attrs = FrameStream.end_of_attrs(payload_bytes[index:index + 1])
+            """if end_of_attrs < 17: #len is 0, the rest of packet is of the same frame
+                frames.append(FrameStream.decode(payload_bytes[index:]))
+                break"""
+            length_of_frame = FrameStream.length_from_attrs(payload_bytes[index:index + end_of_attrs])
+            frames.append(FrameStream.decode(payload_bytes[index:index+length_of_frame])) # all but data
+            index += length_of_frame
         return frames
 
     @staticmethod
-    def stream_frame_min_length_by_type(type_frame: bytes) -> int:
+    def stream_frame_min_length_by_type(type_frame: bytes):
         type_int = int.from_bytes(type_frame, 'big')
-        length = 9
+        min_length = 9
         if type_int & OFF_BIT:
-            length += 8
+            min_length += 8
         # Check if the length is present
         if type_int & LEN_BIT:
-            length += 8
-        return length
+            min_length += 8
+        return min_length
 
     def add_frame(self, frame: 'FrameStream'):
         """

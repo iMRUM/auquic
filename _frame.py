@@ -81,11 +81,31 @@ class FrameStream(StreamFrameABC):
 
     @classmethod
     def decode(cls, frame: bytes):
-        offset, length, fin, stream_id, index, stream_data = FrameStream.decode_first_part(frame)
+        offset, length, fin, stream_id, index, stream_data = FrameStream._decode(frame)
         return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
 
     @classmethod
-    def decode_first_part(cls, frame: bytes):
+    def _decode_type(cls, bytes_type: bytes):
+        int_type = int.from_bytes(bytes_type, "big")
+        if int_type == 0x08:
+            offset = 0
+            length = 0
+            fin = False
+        if int_type == 0x09:
+            offset = 0
+            length = 0
+            fin = False
+        if int_type == 0x0A:
+            offset = 0
+            length = 0
+            fin = False
+        if int_type == 0x0B:
+            offset = 0
+            length = 0
+            fin = False
+
+    @classmethod
+    def _decode(cls, frame: bytes):
         offset = 0
         length = 0
         fin = False
@@ -107,7 +127,7 @@ class FrameStream(StreamFrameABC):
         return offset, length, fin, stream_id, index, frame[index:]
 
     @staticmethod
-    def end_of_data_index(frame: bytes) -> int:
+    def end_of_attrs(frame: bytes) -> int:
         end_of_data = 9
         type_field = int.from_bytes(frame[0:1], 'big')
         if type_field & OFF_BIT:
@@ -115,6 +135,11 @@ class FrameStream(StreamFrameABC):
         if type_field & LEN_BIT:
             end_of_data += 8
         return end_of_data
+
+    @staticmethod
+    def length_from_attrs(frame: bytes):
+        length = int.from_bytes(frame[17:24])
+        return length + 25
 
 
 @dataclass

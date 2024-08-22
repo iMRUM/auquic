@@ -153,7 +153,7 @@ class QuicConnection:
         self._write_file()
 
     def receive_packet(self):
-        self.socket.settimeout(5)  # 5-second timeout
+        self.socket.settimeout(15)  # 5-second timeout
         try:
             packet, addr = self.socket.recvfrom(PACKET_SIZE)
             print(':L148: packet is true')
