@@ -27,14 +27,14 @@ class QuicConnection:
         self._streams_counter = 0
         self._pending_packets = []
         self._packets_counter = 0
-        self._pending_frames: list['Stream'] = []
+        self._pending_frames: list['FrameStream'] = []
         self._retrieved_packets = []
 
     def close_connection(self):
         self.socket.close()
         print("socket is closed")
 
-    def add_stream(self, initiated_by, direction) -> 'Stream':
+    def get_stream(self, initiated_by, direction) -> 'Stream':
         """
         Add a new stream to the connection.
 
@@ -43,10 +43,10 @@ class QuicConnection:
             direction (int): Indicates if the stream is bidirectional(0) or unidirectional(1).
         """
         stream_id = self._stream_id_generator(initiated_by, direction)
-        return self.add_stream_by_id(stream_id)
+        return self._get_stream_by_id(stream_id)
 
-    def add_stream_by_id(self, stream_id):
-        if not self._is_stream_in_dict(stream_id):
+    def _get_stream_by_id(self, stream_id):
+        if not self._is_stream_id_in_dict(stream_id):
             self.streams[stream_id] = Stream(stream_id)
             self._streams_counter += 1
         print(f"Stream: {stream_id} was added successfully.")
@@ -66,8 +66,8 @@ class QuicConnection:
             stream_id (int): Unique identifier for the stream.
             data (bytes): Data to be added to the stream.
         """
-        if self._is_stream_in_dict(stream_id):
-            self.streams[stream_id].write(data=data)
+        if self._is_stream_id_in_dict(stream_id):
+            self.streams[stream_id].add_data_to_stream(data=data)
         else:
             raise ValueError("ERROR: STREAM WAS NOT FOUND")
 
@@ -103,7 +103,7 @@ class QuicConnection:
                 else:
                     if stream := self._get_random_stream_from_streams():
                         frame = stream.send_next_frame()
-                        if stream.sender.is_data_sent_state():
+                        if stream._sender.is_data_sent_state():
                             print(f"{self.streams.pop(stream.stream_id)} was popped!")
                     else:
                         break
@@ -119,7 +119,7 @@ class QuicConnection:
             else:
                 raise ValueError("Packet couldn't be created")
 
-    def _is_stream_in_dict(self, stream_id: int) -> bool:
+    def _is_stream_id_in_dict(self, stream_id: int) -> bool:
         return stream_id in self.streams.keys()
 
     def send_packets(self):
@@ -138,45 +138,48 @@ class QuicConnection:
             print(f"Sending packet {packet}")
 
     def receive_packets(self):
-        time.sleep(1)
+        self.socket.settimeout(10)  # 60-second timeout
         while self.socket.fileno():
             try:
                 self._receive_packets()
             except OSError as e:
-                print(f"An error occurred: {e}")
+                print(f"An error occurred receive_packets: {e}")
                 break
         print('OUT')
 
     def _receive_packets(self):
-        self.socket.settimeout(2)  # 60-second timeout
         try:
             packet, addr = self.socket.recvfrom(PACKET_SIZE)
             # print(':L148: packet is true')
             self.handle_received_packet(packet)
-            #print('receive_packet')
+            # print('receive_packet')
         except socket.timeout:
-            print("Timeout: No data received.")
-            self.write_file()
-            self.close_connection()
+            print("TIMEOUT")
 
     def handle_received_packet(self, packet: bytes):
         unpacked_packet = Packet.unpack(packet)
         print(f':L154: unpacked_packet: {unpacked_packet}')
         frames_in_packet = unpacked_packet.payload
         for frame in frames_in_packet:
-            if self._is_stream_in_dict(frame.stream_id):
-                self.streams[frame.stream_id].receive_frame(frame)
+            stream_id = frame.stream_id
+            try:
+                self._get_stream_by_id(stream_id).receive_frame(frame)
+                if self._get_stream_by_id(stream_id).is_finished():
+                    self.write_stream(stream_id)
+            except Exception as e:
+                print(f"An error occurred handle_received_packet: {e}")
 
-    def write_file(self):
-        print("writing the files")
-        for stream in self.streams.values():
-            print(f'writing stream{stream.stream_id}')
-            with open(f'{stream.stream_id}', 'wb') as file:
-                file.write(stream.receiver.read_data())
-                file.close()
-                # stream.receiver._state = DATA_READ
-                print('file is written')
-        print('finished')
+    def write_stream(self, stream_id: int):
+        # print(f'writing stream{stream.stream_id}')
+        stream = self.streams.pop(stream_id)
+        data = stream.get_data_received()
+        try:
+            with open(f'{stream_id}', 'wb') as file:
+                file.write(data)
+            return True
+        except Exception as e:
+            print(f"An error occurred write_stream: {e}")
+            return False
 
     @staticmethod
     def read_file(path):

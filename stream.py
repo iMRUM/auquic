@@ -21,17 +21,17 @@ class Stream:
         Args:
             stream_id (int): Unique identifier for the stream. 2MSB are 11(???), 62 usable bits, 8-bytes total."""
         self.stream_id = stream_id
-        self.sender = StreamSender(stream_id)
-        self.receiver = StreamReceiver(stream_id)
+        self._sender = StreamSender(stream_id)
+        self._receiver = StreamReceiver(stream_id)
 
-    def write(self, data: bytes):  # sending part
+    def add_data_to_stream(self, data: bytes):  # sending part
         """
         Add data to the stream by delegation.
 
         Args:
             data (bytes): Data to be added to the stream.
         """
-        self.sender.write_data(data)
+        self._sender.add_data_to_send_buffer(data)
 
     def generate_stream_frames(self, max_size: int):
         """
@@ -41,36 +41,44 @@ class Stream:
        that packet calculation will be in quic.py
 
         Delegates stream frames generation to StreamSender"""
-        self.sender.generate_stream_frames(max_size)
+        self._sender.generate_stream_frames(max_size)
 
     def send_next_frame(self) -> 'FrameStream':
         """Delegates next frame sending to StreamSender"""
-        return self.sender.send_next_frame()
+        return self._sender.send_next_frame()
 
     def end_stream(self):
-        return self.sender.generate_fin_frame()
+        return self._sender.generate_fin_frame()
 
     def reset_stream(self):  # TODO
         pass
 
-    def read(self) -> bytes:  # receiving part
-        return self.receiver.read_data()
-
-    def receive_frame(self, frame):
+    def receive_frame(self, frame):  # receiving part
         print("processing received frame")
-        self.receiver.stream_frame_recvd(frame)
+        self._receiver.stream_frame_recvd(frame)
 
-    def is_finished(self):
+    def get_data_received(self) -> bytes:
+        print(f'Fetching data from {self.stream_id}')
+        return self._receiver.get_data_from_buffer()
+
+    def is_finished(self) -> bool:
         """
         Check if the stream has finished transmitting data.
 
         Returns:
             bool: True if the stream has no more data to transmit, False otherwise.
         """
-        pass
+        return self._receiver.is_terminal_state()
 
 
 class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
+
+    """READY = 0
+    SEND = 1
+    DATA_SENT = 2
+    DATA_RECVD = 3
+    RESET_SENT = 4
+    RESET_RECVD = 5"""
 
     def __init__(self, stream_id: int):
         self.stream_id = stream_id
@@ -86,7 +94,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
     def is_data_sent_state(self) -> bool:
         return self._state == DATA_SENT
 
-    def write_data(self, data: bytes):
+    def add_data_to_send_buffer(self, data: bytes):
         if self._state == READY:
             self.send_buffer += data
         else:
@@ -125,35 +133,42 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
 
 
 class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
+
+    """RECV = 0
+    SIZE_KNOWN = 1
+    DATA_READ = 2
+    DATA_RECVD = 3
+    RESET_READ = 4
+    RESET_RECVD = 5"""
+
     def __init__(self, stream_id: int):
         self.stream_id = stream_id
         self.curr_offset = 0
-        self.recv_buffer_dict = {}  # such that K = offset, V = data
+        self.recv_frame_dict = {}  # such that K = offset, V = data
         self.recv_buffer = b""
         self._state = RECV
         self.fin_recvd = False
         self._is_ready = True
 
+    def set_state(self, state: int):
+        self._state = state
 
-    def read_data(self) -> bytes:
-        if self._is_ready:
-            self._convert_dict_to_buffer()
-            return self.recv_buffer
-        else:
-            raise ValueError("ERROR: cannot read. stream is closed.")
+    def is_terminal_state(self) -> bool:
+        return self._state == DATA_RECVD or self._state == RESET_RECVD
 
     def stream_frame_recvd(self, frame: FrameStream):
-        if not self.recv_buffer_dict[frame.offset]:  # this frame wasn't already received
-            self.recv_buffer_dict[frame.offset] = frame.data
-            self.curr_offset += len(frame.data)
-            self.recv_buffer_dict = dict(sorted(self.recv_buffer_dict.items()))  # sort existing frames by their offset
-            if frame.fin:
-                self._fin_recvd(frame)
+        if frame.fin:
+            self._fin_recvd(frame)
+        self.add_frame_to_recv_dict(frame)
+
+    def add_frame_to_recv_dict(self, frame: FrameStream):
+        self.recv_frame_dict[frame.offset] = frame.data
+        self.curr_offset += len(frame.data)
+        if self._state == SIZE_KNOWN:
+            self._convert_dict_to_buffer()
 
     def _fin_recvd(self, frame: FrameStream):
-        self.fin_recvd = True
-        self._state = DATA_RECVD
-        self._convert_dict_to_buffer()
+        self.set_state(SIZE_KNOWN)
 
     def _generate_stop_sending_frame(self) -> FrameStop_Sending:  # will return STOP_SENDING frame
         return FrameStop_Sending(stream_id=self.stream_id, application_protocol_error_code=1)
@@ -161,8 +176,18 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
     def send_stop_sending_frame(self):  # TODO: finish according to 2.4
         frame = self._generate_stop_sending_frame()
 
-    def _convert_dict_to_buffer(self):  # the dict is already sorted by offsets so just add them tandem
-        for data in self.recv_buffer_dict.values():
+    def _convert_dict_to_buffer(self):  # sort the dict according to their offset and add to the buffer tandem
+        self.recv_frame_dict = dict(sorted(self.recv_frame_dict.items()))  # sort existing frames by their offset
+        for data in self.recv_frame_dict.values():
             self.recv_buffer += data
+        self.set_state(DATA_RECVD)
 
+    def get_data_from_buffer(self) -> bytes:
 
+        if self._state == DATA_RECVD:
+            try:
+                return self.recv_buffer
+            finally:
+                self.set_state(DATA_READ)
+        else:
+            raise ValueError("ERROR: cannot read. stream is closed.")

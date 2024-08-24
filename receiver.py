@@ -12,14 +12,10 @@ OUTPUT_FILE_A = 'received_a.txt'
 OUTPUT_FILE_B = 'received_b.txt'
 
 
-def start(quic: 'QuicConnection'):
-    quic.receive_packets()
-
-
 def main():
     connection_id = 1  # Server
     quic_connection = QuicConnection(connection_id, LOCAL_ADDRESS, REMOTE_ADDRESS)
-    start(quic_connection)
+    quic_connection.receive_packets()
 
 if __name__ == '__main__':
     main()

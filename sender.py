@@ -17,8 +17,8 @@ def main():
     connection_id = 0  # Client
     quic_connection = QuicConnection(connection_id, LOCAL_ADDRESS, REMOTE_ADDRESS)
     # Add two streams for the files
-    stream1 = quic_connection.add_stream(initiated_by=connection_id, direction=0).stream_id
-    stream2 = quic_connection.add_stream(initiated_by=connection_id, direction=1).stream_id
+    stream1 = quic_connection.get_stream(initiated_by=connection_id, direction=0).stream_id
+    stream2 = quic_connection.get_stream(initiated_by=connection_id, direction=1).stream_id
     quic_connection.add_data_to_stream(stream1, QuicConnection.read_file(FILE_A))
     quic_connection.add_data_to_stream(stream2, b'123456789123456789')
     quic_connection.send_packets()
