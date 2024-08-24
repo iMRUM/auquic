@@ -134,6 +134,7 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self.fin_recvd = False
         self._is_ready = True
 
+
     def read_data(self) -> bytes:
         if self._is_ready:
             self._convert_dict_to_buffer()

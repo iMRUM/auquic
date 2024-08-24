@@ -138,20 +138,26 @@ class QuicConnection:
             print(f"Sending packet {packet}")
 
     def receive_packets(self):
-        while True:
-            self._receive_packets()
+        time.sleep(1)
+        while self.socket.fileno():
+            try:
+                self._receive_packets()
+            except OSError as e:
+                print(f"An error occurred: {e}")
+                break
+        print('OUT')
 
     def _receive_packets(self):
-        time.sleep(5)
-        self.socket.settimeout(0.01)  # 60-second timeout
+        self.socket.settimeout(2)  # 60-second timeout
         try:
             packet, addr = self.socket.recvfrom(PACKET_SIZE)
-           # print(':L148: packet is true')
+            # print(':L148: packet is true')
             self.handle_received_packet(packet)
             #print('receive_packet')
         except socket.timeout:
             print("Timeout: No data received.")
-            self._write_file()
+            self.write_file()
+            self.close_connection()
 
     def handle_received_packet(self, packet: bytes):
         unpacked_packet = Packet.unpack(packet)
@@ -161,7 +167,7 @@ class QuicConnection:
             if self._is_stream_in_dict(frame.stream_id):
                 self.streams[frame.stream_id].receive_frame(frame)
 
-    def _write_file(self):
+    def write_file(self):
         print("writing the files")
         for stream in self.streams.values():
             print(f'writing stream{stream.stream_id}')
@@ -172,8 +178,9 @@ class QuicConnection:
                 print('file is written')
         print('finished')
 
-    def _read_file(self):
-        with open('a.txt', 'rb') as file:
+    @staticmethod
+    def read_file(path):
+        with open(path, 'rb') as file:
             data = file.read()
         file.close()
         return data
