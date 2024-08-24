@@ -31,7 +31,7 @@ class Stream:
         Args:
             data (bytes): Data to be added to the stream.
         """
-        self._sender.add_data_to_send_buffer(data)
+        self._sender.add_data_to_buffer(data)
 
     def generate_stream_frames(self, max_size: int):
         """
@@ -68,7 +68,7 @@ class Stream:
         Returns:
             bool: True if the stream has no more data to transmit, False otherwise.
         """
-        return self._receiver.is_terminal_state()
+        return self._receiver.is_terminal_state() or self._sender.is_terminal_state()
 
 
 class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
@@ -82,53 +82,52 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
 
     def __init__(self, stream_id: int):
         self.stream_id = stream_id
-        self.send_offset = 0
-        self.send_buffer = b""
-        self.fin_sent = False
+        self._buffer_offset = 0
+        self._send_buffer = b""
         self._state = READY
-        self.stream_frames: list[FrameStream] = []
+        self._stream_frames: list[FrameStream] = []
 
-    def is_ready_state(self) -> bool:
-        return self._state == READY
+    def set_state(self, state: int):
+        self._state = state
 
-    def is_data_sent_state(self) -> bool:
-        return self._state == DATA_SENT
+    def is_terminal_state(self) -> bool:
+        return self._state == DATA_RECVD or self._state == RESET_RECVD
 
-    def add_data_to_send_buffer(self, data: bytes):
+    def add_data_to_buffer(self, data: bytes):
         if self._state == READY:
-            self.send_buffer += data
+            self._send_buffer += data
         else:
             raise ValueError("ERROR: cannot write. stream is not Ready.")
 
     def generate_stream_frames(self, max_size: int):  # max_size for frame(payload allocated)
-        total_stream_frames = len(self.send_buffer) // max_size
+        total_stream_frames = len(self._send_buffer) // max_size
         for i in range(total_stream_frames):
-            self.stream_frames.append(
-                FrameStream(stream_id=self.stream_id, offset=self.send_offset, length=max_size, fin=False,
-                            data=self.send_buffer[self.send_offset:self.send_offset + max_size]))
-            self.send_offset += max_size
-        self.stream_frames.append(self.generate_fin_frame())
+            self._stream_frames.append(
+                FrameStream(stream_id=self.stream_id, offset=self._buffer_offset, length=max_size, fin=False,
+                            data=self._send_buffer[self._buffer_offset:self._buffer_offset + max_size]))
+            self._buffer_offset += max_size
+        self._stream_frames.append(self.generate_fin_frame())
 
     def generate_fin_frame(self) -> FrameStream:
         self._state = DATA_SENT
-        return FrameStream(stream_id=self.stream_id, offset=self.send_offset,
-                           length=len(self.send_buffer[self.send_offset:]),
+        return FrameStream(stream_id=self.stream_id, offset=self._buffer_offset,
+                           length=len(self._send_buffer[self._buffer_offset:]),
                            fin=True,
-                           data=self.send_buffer[
-                                self.send_offset:])  # last frame is the rest of the buffer with FIN bit
+                           data=self._send_buffer[
+                                self._buffer_offset:])  # last frame is the rest of the buffer with FIN bit
 
     def generate_reset_stream_frame(self) -> FrameReset_Stream:
-        if self.send_offset == 0:
+        if self._buffer_offset == 0:
             return FrameReset_Stream(stream_id=self.stream_id, application_protocol_error_code=1, final_size=0)
         return FrameReset_Stream(stream_id=self.stream_id, application_protocol_error_code=1,
-                                 final_size=self.send_offset + 1)
+                                 final_size=self._buffer_offset + 1)
 
     def send_next_frame(self) -> 'FrameStream':
-        self._state = SEND
-        if self.stream_frames:
-            frame = self.stream_frames.pop(0)
+        if self._stream_frames:
+            frame = self._stream_frames.pop(0)
+            self.set_state(SEND)
             if frame.fin:
-                self._state = DATA_SENT
+                self._state = DATA_RECVD
             return frame
 
 
@@ -144,11 +143,9 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
     def __init__(self, stream_id: int):
         self.stream_id = stream_id
         self.curr_offset = 0
-        self.recv_frame_dict = {}  # such that K = offset, V = data
         self.recv_buffer = b""
         self._state = RECV
-        self.fin_recvd = False
-        self._is_ready = True
+        self.recv_frame_dict = {}  # such that K = offset, V = data
 
     def set_state(self, state: int):
         self._state = state

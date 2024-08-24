@@ -103,7 +103,7 @@ class QuicConnection:
                 else:
                     if stream := self._get_random_stream_from_streams():
                         frame = stream.send_next_frame()
-                        if stream._sender.is_data_sent_state():
+                        if stream.is_finished():
                             print(f"{self.streams.pop(stream.stream_id)} was popped!")
                     else:
                         break
