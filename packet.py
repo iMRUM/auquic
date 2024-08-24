@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 import struct
-from _frame import FrameStream, StreamFrameABC
+from frame import FrameStream, StreamFrameABC
 from sys import getsizeof
 
 PACKET_NUMBER_LENGTH = 0x03

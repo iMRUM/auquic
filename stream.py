@@ -2,7 +2,7 @@ import threading
 import time
 from typing import Optional
 
-from _frame import FrameStream, FrameReset_Stream, FrameStop_Sending
+from frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 
 READY = RECV = 0
 SEND = SIZE_KNOWN = 1
@@ -69,6 +69,9 @@ class Stream:
             bool: True if the stream has no more data to transmit, False otherwise.
         """
         return self._receiver.is_terminal_state() or self._sender.is_terminal_state()
+
+    def set_state_rec(self, state):
+        return self._receiver.set_stateDELETE(state)
 
 
 class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
@@ -141,14 +144,22 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
     RESET_RECVD = 5"""
 
     def __init__(self, stream_id: int):
-        self.stream_id = stream_id
-        self.curr_offset = 0
-        self.recv_buffer = b""
-        self._state = RECV
-        self.recv_frame_dict = {}  # such that K = offset, V = data
+        self.stream_id: int = stream_id
+        self.curr_offset: int = 0
+        self.recv_buffer: bytes = b""
+        self._state: int = RECV
+        self.recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
 
-    def set_state(self, state: int):
-        self._state = state
+    def set_stateDELETE(self, state):
+        return self._set_state(state)
+
+    def _set_state(self, state: int) -> bool:
+        try:
+            self._state = state
+            return True
+        except Exception as e:
+            print(f'ERROR: Cannot set state to {state}. {e}')
+            return False
 
     def is_terminal_state(self) -> bool:
         return self._state == DATA_RECVD or self._state == RESET_RECVD
@@ -165,7 +176,7 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
             self._convert_dict_to_buffer()
 
     def _fin_recvd(self, frame: FrameStream):
-        self.set_state(SIZE_KNOWN)
+        self._set_state(SIZE_KNOWN)
 
     def _generate_stop_sending_frame(self) -> FrameStop_Sending:  # will return STOP_SENDING frame
         return FrameStop_Sending(stream_id=self.stream_id, application_protocol_error_code=1)
@@ -177,7 +188,7 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self.recv_frame_dict = dict(sorted(self.recv_frame_dict.items()))  # sort existing frames by their offset
         for data in self.recv_frame_dict.values():
             self.recv_buffer += data
-        self.set_state(DATA_RECVD)
+        self._set_state(DATA_RECVD)
 
     def get_data_from_buffer(self) -> bytes:
 
@@ -185,6 +196,6 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
             try:
                 return self.recv_buffer
             finally:
-                self.set_state(DATA_READ)
+                self._set_state(DATA_READ)
         else:
             raise ValueError("ERROR: cannot read. stream is closed.")

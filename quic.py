@@ -7,7 +7,7 @@ from typing import Optional
 from packet import Packet, PacketHeader
 from stream import Stream
 from sys import getsizeof
-from _frame import FrameStream
+from frame import FrameStream
 
 PACKET_SIZE = 1024
 
