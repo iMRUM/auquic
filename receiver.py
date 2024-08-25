@@ -1,5 +1,6 @@
 from quic import QuicConnection
 
+CONNECTION_ID = 1 # Server
 LOOP_BACK_ADDR = '127.0.0.1'
 LOCAL_PORT = 3492
 REMOTE_PORT = 33336
@@ -8,8 +9,7 @@ REMOTE_ADDRESS = (LOOP_BACK_ADDR, REMOTE_PORT)
 
 
 def main():
-    connection_id = 1  # Server
-    quic_connection = QuicConnection(connection_id, LOCAL_ADDRESS, REMOTE_ADDRESS)
+    quic_connection = QuicConnection(CONNECTION_ID, LOCAL_ADDRESS, REMOTE_ADDRESS)
     quic_connection.receive_packets()
 
 
