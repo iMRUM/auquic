@@ -1,7 +1,3 @@
-import threading
-import time
-from typing import Optional
-
 from frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 
 READY = RECV = 0
@@ -150,8 +146,6 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self._state: int = RECV
         self.recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
 
-    def set_stateDELETE(self, state):
-        return self._set_state(state)
 
     def _set_state(self, state: int) -> bool:
         try:
