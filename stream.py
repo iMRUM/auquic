@@ -1,3 +1,5 @@
+import time
+
 from frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 
 READY = RECV = 0
@@ -19,6 +21,7 @@ class Stream:
         self.stream_id = stream_id
         self._sender = StreamSender(stream_id)
         self._receiver = StreamReceiver(stream_id)
+        self._total_bytes_recvd = 0
 
     def add_data_to_stream(self, data: bytes):  # sending part
         """
@@ -34,7 +37,7 @@ class Stream:
        Retrieve a list of all frames required for the data, depends on size of the data and size of a packet.
 
        Args: max_size (int): The size of the payload_size is determined by size of payload-packet/num of streams on
-       that packet calculation will be in quic.py
+       that packet. calculation will be in quic.py
 
         Delegates stream frames generation to StreamSender"""
         self._sender.generate_stream_frames(max_size)
@@ -49,12 +52,11 @@ class Stream:
     def reset_stream(self):  # TODO
         pass
 
-    def receive_frame(self, frame):  # receiving part
-        print("processing received frame")
+    def receive_frame(self, frame: FrameStream):  # receiving part
+        self._total_bytes_recvd += len(frame.encode())
         self._receiver.stream_frame_recvd(frame)
 
     def get_data_received(self) -> bytes:
-        print(f'Fetching data from {self.stream_id}')
         return self._receiver.get_data_from_buffer()
 
     def is_finished(self) -> bool:
@@ -65,9 +67,6 @@ class Stream:
             bool: True if the stream has no more data to transmit, False otherwise.
         """
         return self._receiver.is_terminal_state() or self._sender.is_terminal_state()
-
-    def set_state_rec(self, state):
-        return self._receiver.set_stateDELETE(state)
 
 
 class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
@@ -145,7 +144,6 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self.recv_buffer: bytes = b""
         self._state: int = RECV
         self.recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
-
 
     def _set_state(self, state: int) -> bool:
         try:

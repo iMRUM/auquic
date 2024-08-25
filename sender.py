@@ -24,8 +24,8 @@ def main():
     stream6 = quic_connection.get_stream(initiated_by=connection_id, direction=0).stream_id
     """
     quic_connection.add_file_to_stream(stream1, FILE_B)
-    quic_connection.add_file_to_stream(stream1, FILE_A)
-    quic_connection.add_file_to_stream(stream1, FILE_A)
+    quic_connection.add_file_to_stream(stream2, FILE_B)
+    quic_connection.add_file_to_stream(stream3, FILE_B)
     """
     quic_connection.add_data_to_stream(stream4, QuicConnection.read_file(FILE_A))
     quic_connection.add_data_to_stream(stream5, QuicConnection.read_file(FILE_A))
