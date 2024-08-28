@@ -2,6 +2,8 @@ import time
 
 from frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 
+INIT_BY = 0x01
+DIRECTION = 0x02
 READY = RECV = BIDIRECTIONAL = CLIENT_ID = 0
 SEND = SIZE_KNOWN = UNIDIRECTIONAL = SERVER_ID = 1
 DATA_SENT = DATA_READ = 2
@@ -12,16 +14,21 @@ FILE = 'a.txt'
 
 
 class Stream:
-    def __init__(self, stream_id):
+    def __init__(self, stream_id, is_uni: bool, is_s_initiated: bool):
         """
         Initialize a Stream instance.
 
         Args:
             stream_id (int): Unique identifier for the stream. 2MSB are 11(???), 62 usable bits, 8-bytes total."""
         self._stream_id = stream_id
+        self._is_uni = is_uni
+        self._is_s_initiated = is_s_initiated
         self._sender = StreamSender(stream_id)
         self._receiver = StreamReceiver(stream_id)
         self._total_bytes_recvd = 0
+
+    def has_data(self) -> bool:
+        return self._sender.has_data() or self._receiver.has_data()
 
     def get_stream_id(self):
         return self._stream_id
@@ -71,6 +78,14 @@ class Stream:
         """
         return self._receiver.is_terminal_state() or self._sender.is_terminal_state()
 
+    @staticmethod
+    def is_uni_by_sid(stream_id: int) -> bool:  # bidi for bidirectional
+        return bool(stream_id & DIRECTION)
+
+    @staticmethod
+    def is_s_init_by_sid(stream_id: int) -> bool:  # s for server
+        return bool(stream_id & INIT_BY)
+
 
 class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
 
@@ -87,6 +102,9 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         self._send_buffer = b""
         self._state = READY
         self._stream_frames: list[FrameStream] = []
+
+    def has_data(self) -> bool:
+        return self._state == SEND
 
     def set_state(self, state: int):
         self._state = state
@@ -147,6 +165,9 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self._recv_buffer: bytes = b""
         self._state: int = RECV
         self._recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
+
+    def has_data(self) -> bool:
+        return self._state == SIZE_KNOWN
 
     def _set_state(self, state: int) -> bool:
         try:

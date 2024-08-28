@@ -31,9 +31,6 @@ class QuicConnection:
         self._pending_frames: list['FrameStream'] = []
         self._idle = True
 
-    def _add_stream_to_stats_dict(self, stream_id: int):
-        self._stats_dict[stream_id] = {'total_bytes': 0, 'total_time': time.time()}
-
     def get_stream(self, initiated_by, direction) -> 'Stream':
         """
         Add a new stream to the connection.
@@ -43,6 +40,8 @@ class QuicConnection:
             direction (int): Indicates if the stream is bidirectional(0) or unidirectional(1).
         """
         stream_id = self._stream_id_generator(initiated_by, direction)
+        if not self._is_stream_id_in_dict(stream_id):
+            self._add_stream(stream_id, bool(initiated_by), bool(direction))
         return self._get_stream_by_id(stream_id)
 
     def _stream_id_generator(self, initiated_by, direction):  # 62-bit
@@ -51,13 +50,17 @@ class QuicConnection:
         padded_int = int(str_binary, 2)
         return padded_int
 
-    def _get_stream_by_id(self, stream_id):
+    def _add_stream(self, stream_id: int, initiated_by: bool, direction: bool):
+        self._streams[stream_id] = Stream(stream_id, initiated_by, direction)
+        self._add_stream_to_stats_dict(stream_id)
+        self._streams_counter += 1
+
+    def _add_stream_to_stats_dict(self, stream_id: int):
+        self._stats_dict[stream_id] = {'total_bytes': 0, 'total_time': time.time(), 'total_packets': set()}
+
+    def _get_stream_by_id(self, stream_id: int):
         if not self._is_stream_id_in_dict(stream_id):
-            self._streams[stream_id] = Stream(stream_id)
-            self._add_stream_to_stats_dict(stream_id)
-            self._stats_dict[stream_id]['total_packets'] = set()
-            #self.streams_packets_dict[stream_id] = set()
-            self._streams_counter += 1
+            self._add_stream(stream_id, Stream.is_s_init_by_sid(stream_id), Stream.is_uni_by_sid(stream_id))
         return self._streams[stream_id]
 
     def add_file_to_stream(self, stream_id: int, path: str):
@@ -148,13 +151,13 @@ class QuicConnection:
         self._socket.settimeout(10)  # 60-second timeout
         while self._idle:
             try:
-                self._receive_packets()
+                self._receive_packet()
             except OSError as e:
                 print(f"An error occurred receive_packets: {e}")
                 break
         self._print_stats()
 
-    def _receive_packets(self):
+    def _receive_packet(self):
         try:
             packet, addr = self._socket.recvfrom(PACKET_SIZE)
             # print(':L148: packet is true')
@@ -199,7 +202,6 @@ class QuicConnection:
 
     def _print_stats(self):
         for stream_id, stats in self._stats_dict.items():
-
             elapsed_time = abs(stats['total_time'])
             total_bytes = stats['total_bytes']
             total_packets = len(stats['total_packets'])
@@ -210,7 +212,6 @@ class QuicConnection:
             print(f'---------------- at rate {float(total_bytes) / elapsed_time} bytes/second')
             print(
                 f'---------------- at rate {float(total_packets) / elapsed_time} packets/second')
-
 
 
 # Example usage
