@@ -2,8 +2,8 @@ import time
 
 from frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 
-READY = RECV = 0
-SEND = SIZE_KNOWN = 1
+READY = RECV = BIDIRECTIONAL = CLIENT_ID = 0
+SEND = SIZE_KNOWN = UNIDIRECTIONAL = SERVER_ID = 1
 DATA_SENT = DATA_READ = 2
 DATA_RECVD = 3
 RESET_SENT = RESET_READ = 4
@@ -79,7 +79,7 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
     RESET_RECVD = 5"""
 
     def __init__(self, stream_id: int):
-        self.stream_id = stream_id
+        self._stream_id = stream_id
         self._buffer_offset = 0
         self._send_buffer = b""
         self._state = READY
@@ -101,14 +101,14 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
         total_stream_frames = len(self._send_buffer) // max_size
         for i in range(total_stream_frames):
             self._stream_frames.append(
-                FrameStream(stream_id=self.stream_id, offset=self._buffer_offset, length=max_size, fin=False,
+                FrameStream(stream_id=self._stream_id, offset=self._buffer_offset, length=max_size, fin=False,
                             data=self._send_buffer[self._buffer_offset:self._buffer_offset + max_size]))
             self._buffer_offset += max_size
         self._stream_frames.append(self.generate_fin_frame())
 
     def generate_fin_frame(self) -> FrameStream:
         self._state = DATA_SENT
-        return FrameStream(stream_id=self.stream_id, offset=self._buffer_offset,
+        return FrameStream(stream_id=self._stream_id, offset=self._buffer_offset,
                            length=len(self._send_buffer[self._buffer_offset:]),
                            fin=True,
                            data=self._send_buffer[
@@ -116,8 +116,8 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
 
     def generate_reset_stream_frame(self) -> FrameReset_Stream:
         if self._buffer_offset == 0:
-            return FrameReset_Stream(stream_id=self.stream_id, application_protocol_error_code=1, final_size=0)
-        return FrameReset_Stream(stream_id=self.stream_id, application_protocol_error_code=1,
+            return FrameReset_Stream(stream_id=self._stream_id, application_protocol_error_code=1, final_size=0)
+        return FrameReset_Stream(stream_id=self._stream_id, application_protocol_error_code=1,
                                  final_size=self._buffer_offset + 1)
 
     def send_next_frame(self) -> 'FrameStream':
@@ -139,11 +139,11 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
     RESET_RECVD = 5"""
 
     def __init__(self, stream_id: int):
-        self.stream_id: int = stream_id
-        self.curr_offset: int = 0
-        self.recv_buffer: bytes = b""
+        self._stream_id: int = stream_id
+        self._curr_offset: int = 0
+        self._recv_buffer: bytes = b""
         self._state: int = RECV
-        self.recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
+        self._recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
 
     def _set_state(self, state: int) -> bool:
         try:
@@ -159,11 +159,11 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
     def stream_frame_recvd(self, frame: FrameStream):
         if frame.fin:
             self._fin_recvd(frame)
-        self.add_frame_to_recv_dict(frame)
+        self._add_frame_to_recv_dict(frame)
 
-    def add_frame_to_recv_dict(self, frame: FrameStream):
-        self.recv_frame_dict[frame.offset] = frame.data
-        self.curr_offset += len(frame.data)
+    def _add_frame_to_recv_dict(self, frame: FrameStream):
+        self._recv_frame_dict[frame.offset] = frame.data
+        self._curr_offset += len(frame.data)
         if self._state == SIZE_KNOWN:
             self._convert_dict_to_buffer()
 
@@ -171,22 +171,22 @@ class StreamReceiver:  # according to https://www.rfc-editor.org/rfc/rfc9000.htm
         self._set_state(SIZE_KNOWN)
 
     def _generate_stop_sending_frame(self) -> FrameStop_Sending:  # will return STOP_SENDING frame
-        return FrameStop_Sending(stream_id=self.stream_id, application_protocol_error_code=1)
+        return FrameStop_Sending(stream_id=self._stream_id, application_protocol_error_code=1)
 
     def send_stop_sending_frame(self):  # TODO: finish according to 2.4
         frame = self._generate_stop_sending_frame()
 
     def _convert_dict_to_buffer(self):  # sort the dict according to their offset and add to the buffer tandem
-        self.recv_frame_dict = dict(sorted(self.recv_frame_dict.items()))  # sort existing frames by their offset
-        for data in self.recv_frame_dict.values():
-            self.recv_buffer += data
+        self._recv_frame_dict = dict(sorted(self._recv_frame_dict.items()))  # sort existing frames by their offset
+        for data in self._recv_frame_dict.values():
+            self._recv_buffer += data
         self._set_state(DATA_RECVD)
 
     def get_data_from_buffer(self) -> bytes:
 
         if self._state == DATA_RECVD:
             try:
-                return self.recv_buffer
+                return self._recv_buffer
             finally:
                 self._set_state(DATA_READ)
         else:
