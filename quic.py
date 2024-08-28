@@ -29,11 +29,9 @@ class QuicConnection:
         self._streams_counter = 0
         self._packets_counter = 0
         self._pending_frames: list['FrameStream'] = []
-        self._retrieved_packets = []
-        self.streams_packets_dict: dict[int, set[int]] = {}  # such that K = stream_id, V* = packets
         self._idle = True
 
-    def add_stream_to_stats_dict(self, stream_id: int):
+    def _add_stream_to_stats_dict(self, stream_id: int):
         self._stats_dict[stream_id] = {'total_bytes': 0, 'total_time': time.time()}
 
     def get_stream(self, initiated_by, direction) -> 'Stream':
@@ -56,7 +54,7 @@ class QuicConnection:
     def _get_stream_by_id(self, stream_id):
         if not self._is_stream_id_in_dict(stream_id):
             self._streams[stream_id] = Stream(stream_id)
-            self.add_stream_to_stats_dict(stream_id)
+            self._add_stream_to_stats_dict(stream_id)
             self._stats_dict[stream_id]['total_packets'] = set()
             #self.streams_packets_dict[stream_id] = set()
             self._streams_counter += 1
