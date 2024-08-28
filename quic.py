@@ -114,7 +114,7 @@ class QuicConnection:
                     if stream := self._get_random_stream_from_streams():
                         frame = stream.send_next_frame()
                         if stream.is_finished():
-                            print(f"{self._streams.pop(stream.stream_id)} was popped!")
+                            print(f"{self._streams.pop(stream.get_stream_id())} was popped!")
                     else:
                         break
                 size_of_frame = getsizeof(frame.encode())

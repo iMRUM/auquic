@@ -18,10 +18,13 @@ class Stream:
 
         Args:
             stream_id (int): Unique identifier for the stream. 2MSB are 11(???), 62 usable bits, 8-bytes total."""
-        self.stream_id = stream_id
+        self._stream_id = stream_id
         self._sender = StreamSender(stream_id)
         self._receiver = StreamReceiver(stream_id)
         self._total_bytes_recvd = 0
+
+    def get_stream_id(self):
+        return self._stream_id
 
     def add_data_to_stream(self, data: bytes):  # sending part
         """

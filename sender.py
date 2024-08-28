@@ -14,9 +14,9 @@ FILE_A = 'img.gif'
 def main():
     quic_connection = QuicConnection(CONNECTION_ID, LOCAL_ADDRESS, REMOTE_ADDRESS)
     # Add streams for the files
-    stream1 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).stream_id
-    stream2 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=1).stream_id
-    stream3 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).stream_id
+    stream1 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream2 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=1).get_stream_id()
+    stream3 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
     # Add files to the streams
     quic_connection.add_file_to_stream(stream1, FILE_A)
     quic_connection.add_file_to_stream(stream2, FILE_A)
