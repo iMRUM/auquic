@@ -73,23 +73,18 @@ class Constants:
     BASE_TWO = TWO
     TIMEOUT = 60
     UDP_HEADER_SIZE = 16
-    BIDIRECTIONAL = ZERO
-    CLIENT_ID = ZERO
+    BIDI = ZERO
+    UNIDI = ONE
 
-    UNIDIRECTIONAL = ONE
-    SERVER_ID = ONE
-
-    FILE_PATH = 'img.gif'
-
+    # -------------------
     # Network-related constants
-    CONNECTION_ID_SERVER = 1
-    CONNECTION_ID_CLIENT = 0
+    # -------------------
+    CONNECTION_ID_RECEIVER = 1
+    CONNECTION_ID_SENDER = 0
     LOOP_BACK_ADDR = '127.0.0.1'
-    LOCAL_PORT_RECEIVER = 3492
-    REMOTE_PORT_RECEIVER = 33336
-    LOCAL_PORT_SENDER = 33336
-    REMOTE_PORT_SENDER = 3492
-    STREAMS = 10
-    FILE_A = 'img.gif'
-    FILE_B = 'img2.gif'
-    TIMEOUT = 10
+    PORT_RECEIVER = 3492
+    PORT_SENDER = 33336
+    ADDR_RECEIVER = (LOOP_BACK_ADDR, PORT_RECEIVER)
+    ADDR_SENDER = (LOOP_BACK_ADDR, PORT_SENDER)
+    STREAMS = 2
+    FILE_PATH = 'img.gif'

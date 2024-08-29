@@ -27,6 +27,7 @@ class QuicConnection:
         self._stats_dict = {}  # stream_id: {total_bytes: , total_packets: , total_time:}
         self._streams_counter = Constants.ZERO
         self._sent_packets_counter = Constants.ZERO
+        self._received_packets_counter = Constants.ZERO
         self._pending_frames: list['FrameStream'] = []
         self._total_time: float = Constants.ZERO
         self._packet_size: int = Constants.ZERO  # 2 bytes
@@ -197,6 +198,7 @@ class QuicConnection:
         print(f'RECEIVED Packet Size {self._packet_size}')
 
     def _handle_received_packet(self, packet: bytes):
+        self._received_packets_counter += Constants.ONE
         self._total_time = time.time()
         unpacked_packet = Packet.unpack(packet)
         frames_in_packet = unpacked_packet.payload
@@ -234,7 +236,6 @@ class QuicConnection:
 
     def _print_stats(self):
         _bytes = 0
-        _packets = 0
         _elapsed_time = time.time() - self._total_time
         for stream_id, stats in self._stats_dict.items():
             elapsed_time = abs(stats['total_time'])
@@ -242,7 +243,6 @@ class QuicConnection:
                 total_bytes = stats['total_bytes']
                 _bytes += total_bytes
                 total_packets = len(stats['total_packets'])
-                _packets += total_packets
                 print(f'STREAM #{stream_id}:')
                 print(f'---------------- {total_bytes} bytes total')
                 print(f'---------------- {total_packets} packets total')
@@ -250,9 +250,9 @@ class QuicConnection:
                 print(
                     f'---------------- at rate {float(total_packets) / elapsed_time} packets/second')
         print(f'Statistics for all active streams:')
-        print(f'---------------- rate {float(_bytes) / _elapsed_time} bytes/second, {_bytes} bytes total')
+        print(f'------- rate {float(_bytes) / _elapsed_time} bytes/second, {_bytes} bytes total')
         print(
-            f'---------------- rate {float(_packets) / _elapsed_time} packets/second, {_packets} packets total')
+            f'---------------- rate {float(self._received_packets_counter) / _elapsed_time} packets/second, {self._received_packets_counter} packets total')
 
 
 # Example usage
