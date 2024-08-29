@@ -76,7 +76,6 @@ class Packet:
 
     @classmethod
     def unpack(cls, packet_bytes: bytes) -> 'Packet':
-        # ignore the header
         packet_number_length = PacketHeader.unpack(packet_bytes[:Constants.HEADER_LENGTH]).packet_number_length
         index = Constants.HEADER_LENGTH
         destination_connection_id = int.from_bytes(packet_bytes[index:index + Constants.DEST_CONNECTION_ID_LENGTH],

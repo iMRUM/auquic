@@ -279,8 +279,7 @@ class QuicConnection:
         """
         Receive a packet and process it.
 
-        Raises:
-            socket.timeout: If the socket times out while waiting for a packet.
+        If the socket times out while waiting for a packet, the connection will be closed.
         """
         try:
             if self._packet_size == Constants.ZERO:
