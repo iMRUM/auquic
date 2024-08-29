@@ -1,4 +1,4 @@
-# constants.py
+# class for all constants in the project
 
 class Constants:
     # -------------------
