@@ -1,7 +1,5 @@
-import struct
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from sys import getsizeof
 
 TYPE_FIELD = 0x08
 OFF_BIT = 0x04
@@ -10,47 +8,17 @@ FIN_BIT = 0x01
 
 
 @dataclass
-class _Frame(ABC):
-    type: int
-
-    @abstractmethod
-    def encode(self) -> bytes:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def decode(cls, frame: bytes):
-        pass
-
-
-@dataclass
-class FrameMax_Data(_Frame):
-    maximum_data: int
-    type = 0x10
-
-    def encode(self) -> bytes:
-        pass
-
-    @classmethod
-    def decode(cls, frame: bytes):
-        pass
-
-
-@dataclass
-class FrameMax_Streams(_Frame):  # Type (i) = 0x12..0x13 (from RFC-9000)
-    maximum_streams: int
-
-    def encode(self) -> bytes:
-        pass
-
-    @classmethod
-    def decode(cls, frame: bytes):
-        pass
-
-
-@dataclass
 class StreamFrameABC(ABC):
     stream_id: int
+
+    @abstractmethod
+    def encode(self) -> bytes:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def decode(cls, frame: bytes):
+        pass
 
 
 @dataclass
@@ -76,7 +44,6 @@ class FrameStream(StreamFrameABC):
         encoded_frame = type_field.to_bytes(1, 'big')  # type is byte[0]
         for v in values:
             encoded_frame += v
-        # print(f'size in bytes{getsizeof(encoded_frame)}')
         return encoded_frame
 
     @classmethod
@@ -123,71 +90,3 @@ class FrameStream(StreamFrameABC):
         if end_of_attrs <= 17:
             return int.from_bytes(frame[9:17], "big")
         return int.from_bytes(frame[17:25], "big")
-
-
-@dataclass
-class FrameReset_Stream(StreamFrameABC):
-    final_size: int
-    type = 0x04
-    application_protocol_error_code: int = 0
-
-    def encode(self) -> bytes:
-        encoded_frame = self.type.to_bytes(1, 'big') + self.stream_id.to_bytes(8, 'big')
-        encoded_frame += self.application_protocol_error_code.to_bytes(1, 'big') + self.final_size.to_bytes(8, 'big')
-        return encoded_frame
-
-    @classmethod
-    def decode(cls, frame: bytes):
-        stream_id = int.from_bytes(frame[1:9], 'big')
-        final_size = int.from_bytes(frame[10:18], 'big')
-        return FrameReset_Stream(stream_id, final_size)
-
-
-@dataclass
-class FrameStop_Sending(StreamFrameABC):
-    application_protocol_error_code: int = 1
-    type = 0x05
-
-    def encode(self) -> bytes:
-        encoded_frame = self.type.to_bytes(1, 'big') + self.stream_id.to_bytes(8, 'big')
-        encoded_frame += self.application_protocol_error_code.to_bytes(1, 'big')
-        return encoded_frame
-
-    @classmethod
-    def decode(cls, frame: bytes):
-        stream_id = int.from_bytes(frame[1:9], 'big')
-        return FrameStop_Sending(stream_id)
-
-
-@dataclass
-class FrameMax_Stream_Data(StreamFrameABC):  # 16-bit is enough for a file (packet is 1024-2048 bytes), 2 bytes
-    maximum_stream_data: int
-    type = 0x11
-
-    def encode(self) -> bytes:
-        encoded_frame = self.type.to_bytes(1, 'big') + self.stream_id.to_bytes(8, 'big')
-        encoded_frame += self.maximum_stream_data.to_bytes(2, 'big')
-        return encoded_frame
-
-    @classmethod
-    def decode(cls, frame: bytes):
-        stream_id = int.from_bytes(frame[1:9], 'big')
-        maximum_stream_data = int.from_bytes(frame[9:11], 'big')
-        return FrameMax_Stream_Data(stream_id, maximum_stream_data)
-
-
-@dataclass
-class FrameStream_Data_Blocked(StreamFrameABC):
-    maximum_stream_data: int
-    type = 0x15
-
-    def encode(self) -> bytes:
-        encoded_frame = self.type.to_bytes(1, 'big') + self.stream_id.to_bytes(8, 'big')
-        encoded_frame += self.maximum_stream_data.to_bytes(2, 'big')
-        return encoded_frame
-
-    @classmethod
-    def decode(cls, frame: bytes):
-        stream_id = int.from_bytes(frame[1:9], 'big')
-        maximum_stream_data = int.from_bytes(frame[9:11], 'big')
-        return FrameStream_Data_Blocked(stream_id, maximum_stream_data)

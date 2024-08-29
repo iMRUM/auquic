@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Optional
-import struct
-from frame import FrameStream, StreamFrameABC
 from sys import getsizeof
+
+from frame import FrameStream
 
 PACKET_NUMBER_LENGTH = 0x03
 FORM = 0b10000000
