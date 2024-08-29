@@ -18,7 +18,7 @@ def main():
     stream2 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=1).get_stream_id()
     stream3 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
     # Add files to the streams
-    quic_connection.add_file_to_stream(stream1, FILE_A)
+    #quic_connection.add_file_to_stream(stream1, FILE_A)
     quic_connection.add_file_to_stream(stream2, FILE_A)
     quic_connection.add_file_to_stream(stream3, FILE_A)
     # Start sending

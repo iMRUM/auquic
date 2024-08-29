@@ -8,9 +8,10 @@ from sys import getsizeof
 from frame import FrameStream
 
 PACKET_SIZE = 2048
+FRAMES_IN_PACKET = 5
 
 
-#PACKET_SIZE = random.randint(1000, 2000)
+# PACKET_SIZE = random.randint(1000, 2000)
 
 
 class QuicConnection:
@@ -25,6 +26,7 @@ class QuicConnection:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._socket.bind(local_addr)
         self._streams: dict[int, Stream] = {}
+        self._active_streams_ids: list[int] = []
         self._stats_dict = {}  # stream_id: {total_bytes: , total_packets: , total_time:}
         self._streams_counter = 0
         self._packets_counter = 0
@@ -63,6 +65,12 @@ class QuicConnection:
             self._add_stream(stream_id, Stream.is_s_init_by_sid(stream_id), Stream.is_uni_by_sid(stream_id))
         return self._streams[stream_id]
 
+    def _remove_stream(self, stream_id: int):
+        self._active_streams_ids.remove(stream_id)
+        return self._streams.pop(stream_id)
+
+
+
     def add_file_to_stream(self, stream_id: int, path: str):
         with open(path, 'rb') as file:
             data = file.read()
@@ -76,13 +84,21 @@ class QuicConnection:
             stream_id (int): Unique identifier for the stream.
             data (bytes): Data to be added to the stream.
         """
-        if self._is_stream_id_in_dict(stream_id):
-            self._streams[stream_id].add_data_to_stream(data=data)
-        else:
-            raise ValueError("ERROR: STREAM WAS NOT FOUND")
+        stream = self._get_stream_by_id(stream_id)
+        stream.add_data_to_stream(data=data)
+        self._add_active_stream_id(stream_id)
+
+    def _add_active_stream_id(self, stream_id: int):
+        if stream_id not in self._active_streams_ids:
+            self._active_streams_ids.append(stream_id)
 
     def _is_stream_id_in_dict(self, stream_id: int) -> bool:
         return stream_id in self._streams.keys()
+
+    def _set_start_time(self):
+        start_time = time.time()
+        for stream in self._stats_dict.values():
+            stream['total_time'] = start_time
 
     def send_packets(self):
         """
@@ -91,7 +107,7 @@ class QuicConnection:
         start_time = time.time()
         for stream in self._stats_dict.values():
             stream['total_time'] = start_time
-        while self._streams:
+        while self._active_streams_ids:
             packet = self._create_packet()
             self._send_packet(packet)
         self._close_connection()
@@ -114,10 +130,10 @@ class QuicConnection:
                 if self._pending_frames:
                     frame = self._pending_frames.pop(0)
                 else:
-                    if stream := self._get_random_stream_from_streams():
+                    if stream := self._get_stream_from_active_streams():
                         frame = stream.send_next_frame()
                         if stream.is_finished():
-                            print(f"{self._streams.pop(stream.get_stream_id())} was popped!")
+                            self._remove_stream(stream.get_stream_id())
                     else:
                         break
                 size_of_frame = getsizeof(frame.encode())
@@ -133,12 +149,19 @@ class QuicConnection:
             raise ValueError("Packet couldn't be created")
 
     def _generate_streams_frames(self):
-        for stream in list(self._streams.values()):
-            stream.generate_stream_frames(max_size=PACKET_SIZE // 5)  #random amount of frames in each packet
+        for stream_id in self._active_streams_ids:
+            self._get_stream_by_id(stream_id).generate_stream_frames(PACKET_SIZE // FRAMES_IN_PACKET)
 
-    def _get_random_stream_from_streams(self) -> 'Stream':
+    def _generate_streams_framesOLD(self):
+        for stream in list(self._streams.values()):
+            stream.generate_stream_frames(max_size=PACKET_SIZE // 5)  # random amount of frames in each packet
+
+    def _get_stream_from_active_streams(self):
+        if not self._active_streams_ids:
+            self._idle = False
+            return
         try:
-            return random.choice(list(self._streams.values()))
+            return self._streams[self._active_streams_ids[0]]  # return the first stream to be activated
         except IndexError:
             print("No more streams!")
 
@@ -171,20 +194,21 @@ class QuicConnection:
         frames_in_packet = unpacked_packet.payload
         for frame in frames_in_packet:
             stream_id = frame.stream_id
+            self._add_active_stream_id(stream_id)
             try:
-                #stream = self._get_stream_by_id(stream_id)
+                # stream = self._get_stream_by_id(stream_id)
                 self._get_stream_by_id(stream_id).receive_frame(frame)
                 self._stats_dict[stream_id]['total_bytes'] += len(frame.encode())
                 self._stats_dict[stream_id]['total_packets'].add(unpacked_packet.packet_number)
-                #self.streams_packets_dict[stream_id].add(unpacked_packet.packet_number)
+                # self.streams_packets_dict[stream_id].add(unpacked_packet.packet_number)
                 if self._get_stream_by_id(stream_id).is_finished():
                     self._write_stream(stream_id)
             except Exception as e:
                 print(f"An error occurred handle_received_packet: {e}")
 
     def _write_stream(self, stream_id: int):
-        # print(f'writing stream{stream.stream_id}')
-        stream = self._streams.pop(stream_id)
+        print(f'writing stream{stream_id}')
+        stream = self._remove_stream(stream_id)
         data = stream.get_data_received()
         curr_time = time.time()
         self._stats_dict[stream_id]['total_time'] -= curr_time
@@ -203,15 +227,15 @@ class QuicConnection:
     def _print_stats(self):
         for stream_id, stats in self._stats_dict.items():
             elapsed_time = abs(stats['total_time'])
-            total_bytes = stats['total_bytes']
-            total_packets = len(stats['total_packets'])
-
-            print(f'STREAM #{stream_id}:')
-            print(f'---------------- {total_bytes} bytes total')
-            print(f'---------------- {total_packets} packets total')
-            print(f'---------------- at rate {float(total_bytes) / elapsed_time} bytes/second')
-            print(
-                f'---------------- at rate {float(total_packets) / elapsed_time} packets/second')
+            if elapsed_time > 0:
+                total_bytes = stats['total_bytes']
+                total_packets = len(stats['total_packets'])
+                print(f'STREAM #{stream_id}:')
+                print(f'---------------- {total_bytes} bytes total')
+                print(f'---------------- {total_packets} packets total')
+                print(f'---------------- at rate {float(total_bytes) / elapsed_time} bytes/second')
+                print(
+                    f'---------------- at rate {float(total_packets) / elapsed_time} packets/second')
 
 
 # Example usage
