@@ -1,16 +1,6 @@
 from abc import ABC, abstractmethod
-
 from frame import FrameStream
-
-INIT_BY = 0x01
-DIRECTION = 0x02
-READY = RECV = BIDIRECTIONAL = CLIENT_ID = 0
-ONE = SEND = SIZE_KNOWN = UNIDIRECTIONAL = SERVER_ID = 1
-TWO = DATA_SENT = DATA_READ = 2
-DATA_RECVD = 3
-RESET_SENT = RESET_READ = 4
-RESET_RECVD = 5
-FILE = 'a.txt'
+from constants import Constants
 
 
 class Stream:
@@ -72,19 +62,19 @@ class Stream:
 
     @staticmethod
     def is_uni_by_sid(stream_id: int) -> bool:  # bidi for bidirectional
-        return bool(stream_id & DIRECTION)
+        return bool(stream_id & Constants.DIRECTION_MASK)
 
     @staticmethod
     def is_s_init_by_sid(stream_id: int) -> bool:  # s for server
-        return bool(stream_id & INIT_BY)
+        return bool(stream_id & Constants.INIT_BY_MASK)
 
 
 class StreamEndpointABC(ABC):
     def __init__(self, stream_id: int):
         self._stream_id: int = stream_id
-        self._curr_offset: int = 0
+        self._curr_offset: int = Constants.ZERO
         self._buffer: bytes = b""
-        self._state: int = READY  # READY = RECV so it applies for both endpoints
+        self._state: int = Constants.READY  # READY = RECV so it applies for both endpoints
 
     def _set_state(self, state: int):
         try:
@@ -102,17 +92,10 @@ class StreamEndpointABC(ABC):
         return bool(self._buffer)
 
     def is_terminal_state(self) -> bool:
-        return self._state == DATA_RECVD or self._state == RESET_RECVD
+        return self._state == Constants.DATA_RECVD or self._state == Constants.RESET_RECVD
 
 
 class StreamSender(StreamEndpointABC):  # according to rfc9000.html#name-operations-on-streams
-
-    """READY = 0
-    SEND = 1
-    DATA_SENT = 2
-    DATA_RECVD = 3
-    RESET_SENT = 4
-    RESET_RECVD = 5"""
 
     def __init__(self, stream_id: int):
         super().__init__(stream_id)
@@ -122,14 +105,14 @@ class StreamSender(StreamEndpointABC):  # according to rfc9000.html#name-operati
         self._add_data_to_buffer(data)
 
     def _add_data_to_buffer(self, data: bytes):
-        if self._state == READY:
+        if self._state == Constants.READY:
             self._buffer += data
         else:
             raise ValueError("ERROR: cannot write. stream is not READY.")
 
     def generate_stream_frames(self, max_size: int):  # max_size for frame(payload allocated)
         total_stream_frames = self._get_total_stream_frames_amount(max_size)
-        if total_stream_frames > ONE:
+        if total_stream_frames > Constants.ONE:
             for i in range(total_stream_frames):
                 self._stream_frames.append(
                     FrameStream(stream_id=self._stream_id, offset=self._curr_offset, length=max_size, fin=False,
@@ -139,12 +122,12 @@ class StreamSender(StreamEndpointABC):  # according to rfc9000.html#name-operati
 
     def _get_total_stream_frames_amount(self, max_size: int) -> int:
         if len(self._buffer) < max_size:
-            return ONE
+            return Constants.ONE
         else:
             return len(self._buffer) // max_size
 
     def generate_fin_frame(self) -> FrameStream:
-        self._set_state(DATA_SENT)
+        self._set_state(Constants.DATA_SENT)
         return FrameStream(stream_id=self._stream_id, offset=self._curr_offset,
                            length=len(self._buffer[self._curr_offset:]),
                            fin=True,
@@ -153,10 +136,10 @@ class StreamSender(StreamEndpointABC):  # according to rfc9000.html#name-operati
 
     def send_next_frame(self) -> 'FrameStream':
         if self._stream_frames:
-            frame = self._stream_frames.pop(0)
-            self._set_state(SEND)
+            frame = self._stream_frames.pop(Constants.ZERO)
+            self._set_state(Constants.SEND)
             if frame.fin:
-                self._set_state(DATA_RECVD)
+                self._set_state(Constants.DATA_RECVD)
             return frame
 
 
@@ -181,30 +164,30 @@ class StreamReceiver(StreamEndpointABC):  # according to www.rfc-editor.org/rfc/
     def _add_frame_to_recv_dict(self, frame: FrameStream):
         self._recv_frame_dict[frame.offset] = frame.data
         self._curr_offset += len(frame.data)
-        if self._state == SIZE_KNOWN:
+        if self._state == Constants.SIZE_KNOWN:
             self._convert_dict_to_buffer()
 
     def _fin_recvd(self):
-        self._set_state(SIZE_KNOWN)
+        self._set_state(Constants.SIZE_KNOWN)
 
     def _convert_dict_to_buffer(self):  # sort the dict according to their offset and add to the buffer tandem
         self._recv_frame_dict = dict(sorted(self._recv_frame_dict.items()))  # sort existing frames by their offset
         for data in self._recv_frame_dict.values():
             self._add_data_to_buffer(data)
-        self._set_state(DATA_RECVD)
+        self._set_state(Constants.DATA_RECVD)
 
     def _add_data_to_buffer(self, data: bytes):
-        if self._state == SIZE_KNOWN:
+        if self._state == Constants.SIZE_KNOWN:
             self._buffer += data
         else:
             raise ValueError("ERROR: cannot write. stream is not READY.")
 
     def get_data_from_buffer(self) -> bytes:
 
-        if self._state == DATA_RECVD:
+        if self._state == Constants.DATA_RECVD:
             try:
                 return self._buffer
             finally:
-                self._set_state(DATA_READ)
+                self._set_state(Constants.DATA_READ)
         else:
             raise ValueError("ERROR: cannot read. stream is closed.")

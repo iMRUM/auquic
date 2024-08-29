@@ -1,10 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-TYPE_FIELD = 0x08
-OFF_BIT = 0x04
-LEN_BIT = 0x02
-FIN_BIT = 0x01
+from constants import Constants
 
 
 @dataclass
@@ -30,18 +27,18 @@ class FrameStream(StreamFrameABC):
     data: bytes
 
     def encode(self) -> bytes:
-        values = [self.stream_id.to_bytes(8, 'big')]
-        type_field = TYPE_FIELD
+        values = [self.stream_id.to_bytes(Constants.STREAM_ID_LENGTH, 'big')]
+        type_field = Constants.MIN_TYPE_FIELD
         if self.offset != 0:
-            type_field = type_field | OFF_BIT
-            values.append(self.offset.to_bytes(8, 'big'))
+            type_field = type_field | Constants.OFF_BIT
+            values.append(self.offset.to_bytes(Constants.OFFSET_LENGTH, 'big'))
         if self.length != 0:
-            type_field = type_field | LEN_BIT
-            values.append(self.length.to_bytes(8, 'big'))
+            type_field = type_field | Constants.LEN_BIT
+            values.append(self.length.to_bytes(Constants.LEN_LENGTH, 'big'))
         if self.fin:
-            type_field = type_field | FIN_BIT
+            type_field = type_field | Constants.FIN_BIT
         values.append(self.data)
-        encoded_frame = type_field.to_bytes(1, 'big')  # type is byte[0]
+        encoded_frame = type_field.to_bytes(Constants.FRAME_TYPE_FIELD_LENGTH, 'big')  # type is byte[0]
         for v in values:
             encoded_frame += v
         return encoded_frame
@@ -53,40 +50,43 @@ class FrameStream(StreamFrameABC):
 
     @classmethod
     def _decode(cls, frame: bytes):
-        offset = 0
-        length = 0
+        offset = Constants.ZERO
+        length = Constants.ZERO
         fin = False
-        type_field = int.from_bytes(frame[0:1], 'big')
-        stream_id = int.from_bytes(frame[1:9], 'big')
-        index = 9
-        if type_field & OFF_BIT:
-            offset = int.from_bytes(frame[index:index + 8], 'big')
-            index += 8
+        type_field = int.from_bytes(frame[:Constants.FRAME_TYPE_FIELD_LENGTH], 'big')
+        index = Constants.FRAME_TYPE_FIELD_LENGTH
+        stream_id = int.from_bytes(frame[index:index+Constants.STREAM_ID_LENGTH], 'big')
+        index += Constants.STREAM_ID_LENGTH
+        if type_field & Constants.OFF_BIT:
+            offset = int.from_bytes(frame[index:index + Constants.OFFSET_LENGTH], 'big')
+            index += Constants.OFFSET_LENGTH
 
         # Check if the length is present
-        if type_field & LEN_BIT:
-            length = int.from_bytes(frame[index:index + 8], 'big')
-            index += 8
+        if type_field & Constants.LEN_BIT:
+            length = int.from_bytes(frame[index:index + Constants.LEN_LENGTH], 'big')
+            index += Constants.LEN_LENGTH
 
         # Check if the FIN bit is set
-        if type_field & FIN_BIT:
+        if type_field & Constants.FIN_BIT:
             fin = True
         return offset, length, fin, stream_id, index, frame[index:]
 
     @staticmethod
     def end_of_attrs(frame: bytes) -> int:
-        end_of_data = 9
-        type_field = int.from_bytes(frame[0:1], 'big')
-        if type_field & OFF_BIT:
-            end_of_data += 8
-        if type_field & LEN_BIT:
-            end_of_data += 8
+        end_of_data = Constants.FRAME_TYPE_FIELD_LENGTH + Constants.STREAM_ID_LENGTH
+        type_field = int.from_bytes(frame[:Constants.FRAME_TYPE_FIELD_LENGTH], 'big')
+        if type_field & Constants.OFF_BIT:
+            end_of_data += Constants.OFFSET_LENGTH
+        if type_field & Constants.LEN_BIT:
+            end_of_data += Constants.LEN_LENGTH
         return end_of_data
 
     @staticmethod
     def length_from_attrs(frame: bytes, end_of_attrs: int):
-        if end_of_attrs <= 9:
-            return 0
-        if end_of_attrs <= 17:
-            return int.from_bytes(frame[9:17], "big")
-        return int.from_bytes(frame[17:25], "big")
+        if end_of_attrs <= Constants.FRAME_TYPE_FIELD_LENGTH + Constants.STREAM_ID_LENGTH:
+            return Constants.ZERO
+        index = Constants.FRAME_TYPE_FIELD_LENGTH + Constants.STREAM_ID_LENGTH
+        if end_of_attrs <= index + Constants.OFFSET_LENGTH:  # offset is not present, len "took" its room
+            return int.from_bytes(frame[index:index + Constants.LEN_LENGTH], "big")
+        index += Constants.OFFSET_LENGTH
+        return int.from_bytes(frame[index:index + Constants.LEN_LENGTH], "big")
