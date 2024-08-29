@@ -74,7 +74,7 @@ class StreamEndpointABC(ABC):
         self._stream_id: int = stream_id
         self._curr_offset: int = Constants.ZERO
         self._buffer: bytes = b""
-        self._state: int = Constants.READY  # READY = RECV so it applies for both endpoints
+        self._state: int = Constants.START  # READY = RECV so it applies for both endpoints
 
     def _set_state(self, state: int):
         try:
@@ -144,13 +144,6 @@ class StreamSender(StreamEndpointABC):  # according to rfc9000.html#name-operati
 
 
 class StreamReceiver(StreamEndpointABC):  # according to www.rfc-editor.org/rfc/rfc9000.html#name-operations-on-streams
-
-    """RECV = 0
-    SIZE_KNOWN = 1
-    DATA_READ = 2
-    DATA_RECVD = 3
-    RESET_READ = 4
-    RESET_RECVD = 5"""
 
     def __init__(self, stream_id: int):
         super().__init__(stream_id)

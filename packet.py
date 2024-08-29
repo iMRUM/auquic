@@ -79,7 +79,8 @@ class Packet:
         # ignore the header
         packet_number_length = PacketHeader.unpack(packet_bytes[:Constants.HEADER_LENGTH]).packet_number_length
         index = Constants.HEADER_LENGTH
-        destination_connection_id = int.from_bytes(packet_bytes[index:index + Constants.DEST_CONNECTION_ID_LENGTH], 'big')
+        destination_connection_id = int.from_bytes(packet_bytes[index:index + Constants.DEST_CONNECTION_ID_LENGTH],
+                                                   'big')
         index += Constants.DEST_CONNECTION_ID_LENGTH
         packet_number = int.from_bytes(packet_bytes[index:index + Constants.PACKET_NUMBER_LENGTH], 'big')
         index += packet_number_length
@@ -102,8 +103,6 @@ class Packet:
             frames.append(FrameStream.decode(payload_bytes[index:index + end_of_attrs + length_of_frame_data]))
             index += end_of_attrs + length_of_frame_data
         return frames
-
-
 
     def add_frame(self, frame: 'FrameStream'):
         self.payload.append(frame)

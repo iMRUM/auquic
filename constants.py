@@ -28,13 +28,10 @@ class Constants:
     # -------------------
     # Packet-related constants
     # -------------------
-    MIN_PACKET_SIZE = 1000
-    MAX_PACKET_SIZE = 2000
-    FRAMES_IN_PACKET = FIVE
     HEADER_LENGTH = ONE
     PACKET_NUMBER_LENGTH = FOUR
     DEST_CONNECTION_ID_LENGTH = EIGHT
-    #Packet-header pack shifts
+    # Packet-header pack shifts
     FORM_SHIFT = SEVEN
     FIXED_SHIFT = SIX
     SPIN_SHIFT = FIVE
@@ -57,29 +54,32 @@ class Constants:
     DATA_RECVD = 3
     RESET_RECVD = 5
     # StreamSender state-related constants
-    READY = ZERO
+    READY = START
     SEND = ONE
-    DATA_SENT = 2
-    RESET_SENT = 4
+    DATA_SENT = TWO
+    RESET_SENT = FOUR
     # StreamReceiver state-related constants
-    RECV = ZERO
+    RECV = START
     SIZE_KNOWN = ONE
-    DATA_READ = 2
-    RESET_READ = 4
-
+    DATA_READ = TWO
+    RESET_READ = FOUR
+    # -------------------
+    # QuicConnection-related constants
+    # -------------------
+    MIN_PACKET_SIZE = 1000
+    MAX_PACKET_SIZE = 2000
+    PACKET_SIZE_BYTES = TWO
+    FRAMES_IN_PACKET = FIVE
+    BASE_TWO = TWO
+    TIMEOUT = 60
+    UDP_HEADER_SIZE = 16
     BIDIRECTIONAL = ZERO
     CLIENT_ID = ZERO
-
 
     UNIDIRECTIONAL = ONE
     SERVER_ID = ONE
 
     FILE_PATH = 'img.gif'
-
-
-
-
-
 
     # Network-related constants
     CONNECTION_ID_SERVER = 1

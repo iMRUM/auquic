@@ -3,15 +3,12 @@ import time
 import random
 from sys import getsizeof
 
+from constants import Constants
 from frame import FrameStream
 from packet import Packet
 from stream import Stream
 
-PACKET_SIZE = 2048
-FRAMES_IN_PACKET = 6
-
-
-# PACKET_SIZE = random.randint(1000, 2000)
+PACKET_SIZE = random.randint(Constants.MIN_PACKET_SIZE, Constants.MAX_PACKET_SIZE)
 
 
 class QuicConnection:
@@ -28,10 +25,11 @@ class QuicConnection:
         self._streams: dict[int, Stream] = {}
         self._active_streams_ids: list[int] = []
         self._stats_dict = {}  # stream_id: {total_bytes: , total_packets: , total_time:}
-        self._streams_counter = 0
-        self._sent_packets_counter = 0
+        self._streams_counter = Constants.ZERO
+        self._sent_packets_counter = Constants.ZERO
         self._pending_frames: list['FrameStream'] = []
-        self._total_time: float = 0
+        self._total_time: float = Constants.ZERO
+        self._packet_size: int = Constants.ZERO  # 2 bytes
         self._idle = True
 
     def get_stream(self, initiated_by, direction) -> 'Stream':
@@ -48,18 +46,18 @@ class QuicConnection:
         return self._get_stream_by_id(stream_id)
 
     def _stream_id_generator(self, initiated_by, direction):  # 62-bit
-        str_binary = bin(self._streams_counter)[2:]  # convert to binary string without prefix
+        str_binary = bin(self._streams_counter)[Constants.TWO:]  # convert to binary string without prefix (index=2)
         str_binary += str(direction) + str(initiated_by)
-        padded_int = int(str_binary, 2)
+        padded_int = int(str_binary, Constants.BASE_TWO)
         return padded_int
 
     def _add_stream(self, stream_id: int, initiated_by: bool, direction: bool):
         self._streams[stream_id] = Stream(stream_id, initiated_by, direction)
         self._add_stream_to_stats_dict(stream_id)
-        self._streams_counter += 1
+        self._streams_counter += Constants.ONE
 
     def _add_stream_to_stats_dict(self, stream_id: int):
-        self._stats_dict[stream_id] = {'total_bytes': 0, 'total_time': time.time(), 'total_packets': set()}
+        self._stats_dict[stream_id] = {'total_bytes': Constants.ZERO, 'total_time': time.time(), 'total_packets': set()}
 
     def _get_stream_by_id(self, stream_id: int):
         if not self._is_stream_id_in_dict(stream_id):
@@ -103,6 +101,7 @@ class QuicConnection:
         """
         Continuously create and send packets until all streams are done.
         """
+        self._send_packet_size()
         start_time = time.time()
         for stream in self._stats_dict.values():
             stream['total_time'] = start_time
@@ -111,6 +110,14 @@ class QuicConnection:
             self._send_packet(packet)
         self._close_connection()
         print('closing connection')
+
+    def _send_packet_size(self):
+        self._packet_size = PACKET_SIZE
+        packet_size_bytes = self._packet_size.to_bytes(Constants.PACKET_SIZE_BYTES, 'big')
+        if self._socket.sendto(packet_size_bytes, self._remote_addr):
+            print(f'Sent Packet Size {self._packet_size}')
+            return True
+        return False
 
     def _create_packet(self):
         """
@@ -125,9 +132,9 @@ class QuicConnection:
         remaining_space = PACKET_SIZE
         if packet := Packet(int(not self._connection_id), self._sent_packets_counter):
             remaining_space -= getsizeof(packet)
-            while remaining_space > 0:
+            while remaining_space > Constants.ZERO:
                 if self._pending_frames:
-                    frame = self._pending_frames.pop(0)
+                    frame = self._pending_frames.pop(Constants.START)
                 else:
                     if stream := self._get_stream_from_active_streams():
                         frame = stream.send_next_frame()
@@ -141,15 +148,15 @@ class QuicConnection:
                     remaining_space -= size_of_frame
                 else:
                     self._pending_frames.append(frame)
-                    remaining_space = 0
-            self._sent_packets_counter += 1
+                    remaining_space = Constants.ZERO
+            self._sent_packets_counter += Constants.ONE
             return packet
         else:
             raise ValueError("Packet couldn't be created")
 
     def _generate_streams_frames(self):
         for stream_id in self._active_streams_ids:
-            self._get_stream_by_id(stream_id).generate_stream_frames(PACKET_SIZE // FRAMES_IN_PACKET)
+            self._get_stream_by_id(stream_id).generate_stream_frames(PACKET_SIZE // Constants.FRAMES_IN_PACKET)
 
     def _get_stream_from_active_streams(self):
         if not self._active_streams_ids:
@@ -163,11 +170,10 @@ class QuicConnection:
     def _send_packet(self, packet: Packet):
         if self._socket.sendto(packet.pack(), self._remote_addr):
             pass
-            print(f"Sending packet {packet}")
 
     def receive_packets(self):
 
-        self._socket.settimeout(10)  # 60-second timeout
+        self._socket.settimeout(Constants.TIMEOUT)  # 60-second timeout
         while self._idle:
             try:
                 self._receive_packet()
@@ -177,12 +183,18 @@ class QuicConnection:
 
     def _receive_packet(self):
         try:
-            packet, addr = self._socket.recvfrom(PACKET_SIZE)
-            # print(':L148: packet is true')
-            self._handle_received_packet(packet)
-            # print('receive_packet')
+            if self._packet_size == Constants.ZERO:
+                packet, addr = self._socket.recvfrom(Constants.PACKET_SIZE_BYTES)
+                self._handle_received_packet_size(packet)
+            else:
+                packet, addr = self._socket.recvfrom(self._packet_size)
+                self._handle_received_packet(packet)
         except socket.timeout:
             self._close_connection()
+
+    def _handle_received_packet_size(self, packet_size: bytes):
+        self._packet_size = int.from_bytes(packet_size, 'big')
+        print(f'RECEIVED Packet Size {self._packet_size}')
 
     def _handle_received_packet(self, packet: bytes):
         self._total_time = time.time()
