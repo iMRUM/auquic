@@ -1,5 +1,6 @@
 import socket
 import time
+import random
 from sys import getsizeof
 
 from frame import FrameStream
@@ -7,7 +8,7 @@ from packet import Packet
 from stream import Stream
 
 PACKET_SIZE = 2048
-FRAMES_IN_PACKET = 2
+FRAMES_IN_PACKET = 6
 
 
 # PACKET_SIZE = random.randint(1000, 2000)
@@ -30,7 +31,7 @@ class QuicConnection:
         self._streams_counter = 0
         self._sent_packets_counter = 0
         self._pending_frames: list['FrameStream'] = []
-        self._start_time: float = time.time()
+        self._total_time: float = 0
         self._idle = True
 
     def get_stream(self, initiated_by, direction) -> 'Stream':
@@ -155,7 +156,7 @@ class QuicConnection:
             self._idle = False
             return
         try:
-            return self._streams[self._active_streams_ids[0]]  # return the first stream to be activated
+            return self._streams[random.choice(self._active_streams_ids)]  # return the first stream to be activated
         except IndexError:
             print("No more streams!")
 
@@ -166,14 +167,13 @@ class QuicConnection:
 
     def receive_packets(self):
 
-        self._socket.settimeout(60)  # 60-second timeout
+        self._socket.settimeout(10)  # 60-second timeout
         while self._idle:
             try:
                 self._receive_packet()
             except OSError as e:
                 print(f"An error occurred receive_packets: {e}")
                 break
-        self._print_stats()
 
     def _receive_packet(self):
         try:
@@ -185,6 +185,7 @@ class QuicConnection:
             self._close_connection()
 
     def _handle_received_packet(self, packet: bytes):
+        self._total_time = time.time()
         unpacked_packet = Packet.unpack(packet)
         frames_in_packet = unpacked_packet.payload
         for frame in frames_in_packet:
@@ -208,6 +209,7 @@ class QuicConnection:
         try:
             with open(f'{stream_id}.gif', 'wb') as file:
                 file.write(data)
+
             return True
         except Exception as e:
             print(f"An error occurred write_stream: {e}")
@@ -216,12 +218,12 @@ class QuicConnection:
     def _close_connection(self):
         self._idle = False
         self._socket.close()
-        print("socket is closed")
+        self._print_stats()
 
     def _print_stats(self):
         _bytes = 0
         _packets = 0
-        _elapsed_time = time.time() - self._start_time
+        _elapsed_time = time.time() - self._total_time
         for stream_id, stats in self._stats_dict.items():
             elapsed_time = abs(stats['total_time'])
             if elapsed_time > 0:
