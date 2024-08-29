@@ -93,7 +93,6 @@ class Packet:
 
     @staticmethod
     def get_frames_from_payload_bytes(payload_bytes: bytes) -> list[FrameStream]:
-        # print(f'payload_bytes: {payload_bytes}')
         index = Constants.START
         frames: list[FrameStream] = []
         while index < len(payload_bytes):

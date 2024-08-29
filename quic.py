@@ -110,13 +110,11 @@ class QuicConnection:
             packet = self._create_packet()
             self._send_packet(packet)
         self._close_connection()
-        print('closing connection')
 
     def _send_packet_size(self):
         self._packet_size = PACKET_SIZE
         packet_size_bytes = self._packet_size.to_bytes(Constants.PACKET_SIZE_BYTES, 'big')
         if self._socket.sendto(packet_size_bytes, self._remote_addr):
-            print(f'Sent Packet Size {self._packet_size}')
             return True
         return False
 
@@ -195,7 +193,6 @@ class QuicConnection:
 
     def _handle_received_packet_size(self, packet_size: bytes):
         self._packet_size = int.from_bytes(packet_size, 'big')
-        print(f'RECEIVED Packet Size {self._packet_size}')
 
     def _handle_received_packet(self, packet: bytes):
         self._received_packets_counter += Constants.ONE
@@ -223,7 +220,6 @@ class QuicConnection:
         try:
             with open(f'{stream_id}.gif', 'wb') as file:
                 file.write(data)
-
             return True
         except Exception as e:
             print(f"An error occurred write_stream: {e}")

@@ -7,6 +7,7 @@ def main():
     # Add streams for the files
     streams = []
     for i in range(Constants.STREAMS):
+        streams.append(quic_connection.get_stream(Constants.CONNECTION_ID_SENDER, Constants.UNIDI).get_stream_id())
         streams.append(quic_connection.get_stream(Constants.CONNECTION_ID_SENDER, Constants.BIDI).get_stream_id())
     # Add files to the streams
     for stream in streams:

@@ -9,7 +9,10 @@ class Stream:
         Initialize a Stream instance.
 
         Args:
-            stream_id (int): Unique identifier for the stream. 2MSB are 11(???), 62 usable bits, 8-bytes total."""
+            stream_id (int): Unique identifier for the stream, generated already.
+            is_uni (bool): Specifies if the stream is unidirectional.
+            is_s_initiated (bool): Specifies if the stream was initiated by the server (receiver).
+        """
         self._stream_id = stream_id
         self._is_uni = is_uni
         self._is_s_initiated = is_s_initiated
@@ -17,35 +20,56 @@ class Stream:
         self._receiver = StreamReceiver(stream_id)
 
     def has_data(self) -> bool:
+        """
+        Check if there is any data to send or receive.
+
+        Returns:
+            bool: True if there is data in the sender or receiver buffer, False otherwise.
+        """
         return self._sender.has_data() or self._receiver.has_data()
 
     def get_stream_id(self):
+        """
+        Getter for stream ID.
+
+        Returns:
+            int: stream ID.
+        """
         return self._stream_id
 
     def add_data_to_stream(self, data: bytes):  # sending part
         """
-        Add data to the stream by delegation.
+        Add data to the stream by delegation to StreamSender.
 
         Args:
-            data (bytes): Data to be added to the stream.
+            data (bytes): Data to be added to the send buffer.
         """
         self._sender.add_data_to_buffer(data)
 
     def generate_stream_frames(self, max_size: int):
         """
-       Retrieve a list of all frames required for the data, depends on size of the data and size of a packet.
+       Stream frames generation by delegation to StreamSender.
+       Generate stream frames for sending based on the maximum frame size.
 
-       Args: max_size (int): The size of the payload_size is determined by size of payload-packet/num of streams on
-       that packet. calculation will be in quic.py
+       Args: max_size (int): The size of the payload_size which is determined by size of payload-packet/num of streams on
+       that packet.
 
-        Delegates stream frames generation to StreamSender"""
+        """
         self._sender.generate_stream_frames(max_size)
 
     def send_next_frame(self) -> 'FrameStream':
-        """Delegates next frame sending to StreamSender"""
+        """Delegates next frame sending to StreamSender
+        Returns:
+            FrameStream: The next frame to be sent."""
         return self._sender.send_next_frame()
 
     def receive_frame(self, frame: FrameStream):  # receiving part
+        """
+        Process a received frame by delegating it to the receiver.
+
+        Args:
+            frame (FrameStream): The received frame.
+        """
         self._receiver.stream_frame_recvd(frame)
 
     def get_data_received(self) -> bytes:
