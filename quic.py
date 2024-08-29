@@ -8,7 +8,7 @@ from sys import getsizeof
 from frame import FrameStream
 
 PACKET_SIZE = 2048
-FRAMES_IN_PACKET = 5
+FRAMES_IN_PACKET = 2
 
 
 # PACKET_SIZE = random.randint(1000, 2000)
@@ -167,11 +167,12 @@ class QuicConnection:
 
     def _send_packet(self, packet: Packet):
         if self._socket.sendto(packet.pack(), self._remote_addr):
+            pass
             print(f"Sending packet {packet}")
 
     def receive_packets(self):
 
-        self._socket.settimeout(10)  # 60-second timeout
+        self._socket.settimeout(60)  # 60-second timeout
         while self._idle:
             try:
                 self._receive_packet()
@@ -187,7 +188,7 @@ class QuicConnection:
             self._handle_received_packet(packet)
             # print('receive_packet')
         except socket.timeout:
-            self._idle = False
+            self._close_connection()
 
     def _handle_received_packet(self, packet: bytes):
         unpacked_packet = Packet.unpack(packet)
@@ -215,12 +216,14 @@ class QuicConnection:
         try:
             with open(f'{stream_id}.gif', 'wb') as file:
                 file.write(data)
+            print(f'stream{stream_id} was written')
             return True
         except Exception as e:
             print(f"An error occurred write_stream: {e}")
             return False
 
     def _close_connection(self):
+        self._idle = False
         self._socket.close()
         print("socket is closed")
 

@@ -9,18 +9,33 @@ REMOTE_ADDRESS = (LOOP_BACK_ADDR, REMOTE_PORT)
 STREAM_ID_1 = 1
 STREAM_ID_2 = 2
 FILE_A = 'img.gif'
+FILE_B = 'img2.gif'
 
 
 def main():
     quic_connection = QuicConnection(CONNECTION_ID, LOCAL_ADDRESS, REMOTE_ADDRESS)
     # Add streams for the files
     stream1 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
-    stream2 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=1).get_stream_id()
+    stream2 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
     stream3 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream4 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream5 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream6 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream7 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream8 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream9 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
+    stream10 = quic_connection.get_stream(initiated_by=CONNECTION_ID, direction=0).get_stream_id()
     # Add files to the streams
-    #quic_connection.add_file_to_stream(stream1, FILE_A)
+    quic_connection.add_file_to_stream(stream1, FILE_A)
     quic_connection.add_file_to_stream(stream2, FILE_A)
     quic_connection.add_file_to_stream(stream3, FILE_A)
+    quic_connection.add_file_to_stream(stream7, FILE_A)
+    quic_connection.add_file_to_stream(stream6, FILE_A)
+    quic_connection.add_file_to_stream(stream5, FILE_A)
+    quic_connection.add_file_to_stream(stream4, FILE_A)
+    quic_connection.add_file_to_stream(stream8, FILE_A)
+    quic_connection.add_file_to_stream(stream9, FILE_A)
+    quic_connection.add_file_to_stream(stream10, FILE_B)
     # Start sending
     quic_connection.send_packets()
 

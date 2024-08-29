@@ -5,8 +5,8 @@ from frame import FrameStream, FrameReset_Stream, FrameStop_Sending
 INIT_BY = 0x01
 DIRECTION = 0x02
 READY = RECV = BIDIRECTIONAL = CLIENT_ID = 0
-SEND = SIZE_KNOWN = UNIDIRECTIONAL = SERVER_ID = 1
-DATA_SENT = DATA_READ = 2
+ONE = SEND = SIZE_KNOWN = UNIDIRECTIONAL = SERVER_ID = 1
+TWO = DATA_SENT = DATA_READ = 2
 DATA_RECVD = 3
 RESET_SENT = RESET_READ = 4
 RESET_RECVD = 5
@@ -119,13 +119,21 @@ class StreamSender:  # according to https://www.rfc-editor.org/rfc/rfc9000.html#
             raise ValueError("ERROR: cannot write. stream is not Ready.")
 
     def generate_stream_frames(self, max_size: int):  # max_size for frame(payload allocated)
-        total_stream_frames = len(self._send_buffer) // max_size
-        for i in range(total_stream_frames):
-            self._stream_frames.append(
-                FrameStream(stream_id=self._stream_id, offset=self._buffer_offset, length=max_size, fin=False,
-                            data=self._send_buffer[self._buffer_offset:self._buffer_offset + max_size]))
-            self._buffer_offset += max_size
+        total_stream_frames = self._get_total_stream_frames_amount(max_size)
+        if total_stream_frames > ONE:
+            for i in range(total_stream_frames):
+                self._stream_frames.append(
+                    FrameStream(stream_id=self._stream_id, offset=self._buffer_offset, length=max_size, fin=False,
+                                data=self._send_buffer[self._buffer_offset:self._buffer_offset + max_size]))
+                self._buffer_offset += max_size
         self._stream_frames.append(self.generate_fin_frame())
+
+    def _get_total_stream_frames_amount(self, max_size:int) -> int:
+        if len(self._send_buffer) < max_size:
+            return ONE
+        else:
+            return len(self._send_buffer) // max_size
+
 
     def generate_fin_frame(self) -> FrameStream:
         self._state = DATA_SENT
