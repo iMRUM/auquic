@@ -23,9 +23,9 @@ This implementation simulates the core functionalities of QUIC, including the ma
 - `frame.py`: Defines the classes for different types of frames, including methods to encode and decode them.
 - `packet.py`: Handles the construction and parsing of QUIC packets, including the packet header and payload.
 - `stream.py`: Manages stream operations, including sending and receiving data, generating frames, and handling stream states.
-- `quic.py`: Manages the QUIC connection, including stream management, packet sending and receiving, and connection statistics.
-- `sender.py`: A script to initiate the sender-side QUIC connection and handle file transfers.
-- `receiver.py`: A script to initiate the receiver-side QUIC connection and process incoming packets.
+- `quic.py`: Manages the QUIC connection, including stream management, packet sending and receiving, and showing connection statistics.
+- `sender.py`: A script to initiate the sender-side QUIC connection.
+- `receiver.py`: A script to initiate the receiver-side QUIC connection.
 
 ## Features
 - **Stream Management**: Supports multiple streams per connection, with each stream capable of bi-directional or unidirectional data flow.
