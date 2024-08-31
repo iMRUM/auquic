@@ -183,7 +183,6 @@ class QuicConnection:
             stream['total_time'] = start_time
         while self._active_streams_ids:
             packet = self._create_packet()
-            print(f"Sending packet {packet.packet_number}")
             self._send_packet(packet.pack())
         self._close_connection()
 
@@ -327,7 +326,6 @@ class QuicConnection:
                 self._stats_dict[stream_id]['total_packets'].add(unpacked_packet.packet_number)
                 # self.streams_packets_dict[stream_id].add(unpacked_packet.packet_number)
                 if self._get_stream_by_id(stream_id).is_finished():
-                    print(f'Stream #{stream_id} is finished!')
                     self._write_stream(stream_id)
             except Exception as e:
                 print(f"An error occurred handle_received_packet: {e}")

@@ -1,22 +1,7 @@
 from dataclasses import dataclass, field
-from sys import getsizeof
 
 from constants import Constants
 from frame import FrameStream
-
-PACKET_NUMBER_LENGTH = 0x03
-FORM = 0b10000000
-FIXED = 0b01000000
-SPIN = 0b00100000
-RES = 0b00011000
-KEY = 0b00000100
-ONE = 0x01
-TWO = 0x03
-# consts for payload handling:
-TYPE_FIELD = 0x08
-OFF_BIT = 0x04
-LEN_BIT = 0x02
-FIN_BIT = 0x01
 
 
 @dataclass

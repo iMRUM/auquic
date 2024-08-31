@@ -180,9 +180,9 @@ class StreamEndpointABC(ABC):
         Check if the endpoint has reached a terminal state.
 
         Returns:
-            bool: True if the state is DATA_RECVD or RESET_RECVD, False otherwise.
+            bool: True if the state is DATA_RECVD, False otherwise.
         """
-        return self._state == Constants.DATA_RECVD or self._state == Constants.RESET_RECVD or not self._is_usable
+        return self._state == Constants.DATA_RECVD or not self._is_usable
 
 
 class StreamSender(StreamEndpointABC):
