@@ -183,6 +183,7 @@ class QuicConnection:
             stream['total_time'] = start_time
         while self._active_streams_ids:
             packet = self._create_packet()
+            print(f"Sending packet {packet.packet_number}")
             self._send_packet(packet.pack())
         self._close_connection()
 

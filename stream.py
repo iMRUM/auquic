@@ -16,8 +16,8 @@ class Stream:
         self._stream_id = stream_id
         self._is_uni = is_uni
         self._is_s_initiated = is_s_initiated
-        self._sender = StreamSender(stream_id)
-        self._receiver = StreamReceiver(stream_id)
+        self._sender = StreamSender(stream_id, (is_uni and not is_s_initiated) or not is_uni) # if uni and not s-initiated it's a send only stream, or it's a bidi stream
+        self._receiver = StreamReceiver(stream_id, (is_uni and is_s_initiated) or not is_uni) # if uni and s-initiated it's a receive only stream, or it's a bidi stream
 
     def has_data(self) -> bool:
         """
@@ -91,7 +91,12 @@ class Stream:
         Returns:
             bool: True if the stream is in a terminal state, False otherwise.
         """
-        return self._receiver.is_terminal_state() or self._sender.is_terminal_state()
+        if not self._is_uni:
+            return self._receiver.is_terminal_state() or self._sender.is_terminal_state()
+        if self._is_s_initiated:
+            return self._receiver.is_terminal_state()
+        else:
+            return self._sender.is_terminal_state()
 
     @staticmethod
     def is_uni_by_sid(stream_id: int) -> bool:
@@ -121,17 +126,18 @@ class Stream:
 
 
 class StreamEndpointABC(ABC):
-    def __init__(self, stream_id: int):
+    def __init__(self, stream_id: int, is_usable: bool):
         """
         Abstract Constructor for StreamEndpointABC abstract class.
 
         Args:
             stream_id (int): The stream ID of this endpoint.
-        """
+            is_usable (bool): Specifies if the stream endpoint is 'usable'."""
         self._stream_id: int = stream_id
         self._curr_offset: int = Constants.ZERO
         self._buffer: bytes = b""
         self._state: int = Constants.START  # READY = RECV so it's applicable for both endpoints
+        self._is_usable: bool = is_usable
 
     def _set_state(self, state: int) -> bool:
         """
@@ -176,18 +182,19 @@ class StreamEndpointABC(ABC):
         Returns:
             bool: True if the state is DATA_RECVD or RESET_RECVD, False otherwise.
         """
-        return self._state == Constants.DATA_RECVD or self._state == Constants.RESET_RECVD
+        return self._state == Constants.DATA_RECVD or self._state == Constants.RESET_RECVD or not self._is_usable
 
 
 class StreamSender(StreamEndpointABC):
-    def __init__(self, stream_id: int):
+    def __init__(self, stream_id: int, is_usable: bool):
         """
         Initialize a StreamSender instance.
 
         Args:
             stream_id (int): The stream ID associated with this sender.
+            @param is_usable:
         """
-        super().__init__(stream_id)
+        super().__init__(stream_id, is_usable)
         self._stream_frames = []
 
     def add_data_to_buffer(self, data: bytes):
@@ -272,14 +279,15 @@ class StreamSender(StreamEndpointABC):
 
 
 class StreamReceiver(StreamEndpointABC):
-    def __init__(self, stream_id: int):
+    def __init__(self, stream_id: int, is_usable: bool):
         """
         Initialize a StreamReceiver instance.
 
         Args:
             stream_id (int): The stream ID associated with this receiver.
+            @param is_usable:
         """
-        super().__init__(stream_id)
+        super().__init__(stream_id, is_usable)
         self._recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
 
     def stream_frame_recvd(self, frame: FrameStream):
