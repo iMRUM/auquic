@@ -88,7 +88,7 @@ class FrameStream(StreamFrameABC):
         fin = False
         type_field = int.from_bytes(frame[:Constants.FRAME_TYPE_FIELD_LENGTH], 'big')
         index = Constants.FRAME_TYPE_FIELD_LENGTH
-        stream_id = int.from_bytes(frame[index:index+Constants.STREAM_ID_LENGTH], 'big')
+        stream_id = int.from_bytes(frame[index:index + Constants.STREAM_ID_LENGTH], 'big')
         index += Constants.STREAM_ID_LENGTH
         if type_field & Constants.OFF_BIT:
             offset = int.from_bytes(frame[index:index + Constants.OFFSET_LENGTH], 'big')
@@ -107,6 +107,20 @@ class FrameStream(StreamFrameABC):
 
     @staticmethod
     def end_of_attrs(frame: bytes) -> int:
+        """
+        Determines the end position of the attributes in the frame.
+
+        The process includes:
+        - Calculating the initial end position based on the frame type field length and stream ID length.
+        - Checking if the offset bit is set in the type field and adjusting the end position accordingly.
+        - Checking if the length bit is set in the type field and adjusting the end position accordingly.
+
+        Args:
+            frame (bytes): The encoded frame as bytes.
+
+        Returns:
+            int: The end position of the attributes in the frame.
+        """
         end_of_data = Constants.FRAME_TYPE_FIELD_LENGTH + Constants.STREAM_ID_LENGTH
         type_field = int.from_bytes(frame[:Constants.FRAME_TYPE_FIELD_LENGTH], 'big')
         if type_field & Constants.OFF_BIT:
@@ -117,6 +131,21 @@ class FrameStream(StreamFrameABC):
 
     @staticmethod
     def length_from_attrs(frame: bytes, end_of_attrs: int):
+        """
+        Determines the length of the data in the frame.
+
+        The process includes:
+        - Checking if the end of attributes is less than or equal to the sum of the frame type field length and stream ID length. (length is 0)
+        - If the end of attributes is less than or equal to the sum of the frame type field length and stream ID length plus the offset length. (offset is not present, len "took" its room
+        - Otherwise, the length is extracted from the frame after the offset length.
+
+        Args:
+            frame (bytes): The encoded frame as bytes.
+            end_of_attrs (int): The end position of the attributes in the frame.
+
+        Returns:
+            int: The length of the data in the frame.
+        """
         if end_of_attrs <= Constants.FRAME_TYPE_FIELD_LENGTH + Constants.STREAM_ID_LENGTH:
             return Constants.ZERO
         index = Constants.FRAME_TYPE_FIELD_LENGTH + Constants.STREAM_ID_LENGTH

@@ -239,7 +239,7 @@ class QuicConnection:
         for stream_id in self._active_streams_ids:
             self._get_stream_by_id(stream_id).generate_stream_frames(PACKET_SIZE // Constants.FRAMES_IN_PACKET)
 
-    def _get_stream_from_active_streams(self) -> 'Stream':
+    def _get_stream_from_active_streams(self) -> Stream | None:
         """
         Retrieve a stream from the list of active streams.
 
@@ -284,12 +284,20 @@ class QuicConnection:
         try:
             if self._packet_size == Constants.ZERO:
                 packet, addr = self._socket.recvfrom(Constants.PACKET_SIZE_BYTES)
+                self._total_time = time.time()
                 self._handle_received_packet_size(packet)
             else:
                 packet, addr = self._socket.recvfrom(self._packet_size)
                 self._handle_received_packet(packet)
+                if not self._active_streams_ids:
+                    self._increment_received_packets_counter()
+                    self._close_connection()
+            self._increment_received_packets_counter()
         except socket.timeout:
             self._close_connection()
+
+    def _increment_received_packets_counter(self):
+        self._received_packets_counter += Constants.ONE
 
     def _handle_received_packet_size(self, packet_size: bytes):
         """
@@ -298,6 +306,7 @@ class QuicConnection:
         Args:
             packet_size (bytes): The received packet size in bytes.
         """
+        print(f'Packet size received: {int.from_bytes(packet_size, "big")}')
         self._packet_size = int.from_bytes(packet_size, 'big')
 
     def _handle_received_packet(self, packet: bytes):
@@ -307,8 +316,6 @@ class QuicConnection:
         Args:
             packet (bytes): The received packet in bytes.
         """
-        self._received_packets_counter += Constants.ONE
-        self._total_time = time.time()
         unpacked_packet = Packet.unpack(packet)
         frames_in_packet = unpacked_packet.payload
         for frame in frames_in_packet:
@@ -320,6 +327,7 @@ class QuicConnection:
                 self._stats_dict[stream_id]['total_packets'].add(unpacked_packet.packet_number)
                 # self.streams_packets_dict[stream_id].add(unpacked_packet.packet_number)
                 if self._get_stream_by_id(stream_id).is_finished():
+                    print(f'Stream #{stream_id} is finished!')
                     self._write_stream(stream_id)
             except Exception as e:
                 print(f"An error occurred handle_received_packet: {e}")
@@ -350,6 +358,7 @@ class QuicConnection:
         """
         Close the connection, socket, and print the statistics.
         """
+        self._total_time -= time.time()
         self._idle = False
         self._socket.close()
         self._print_stats()
@@ -358,8 +367,8 @@ class QuicConnection:
         """
         Print the statistics for all active streams in the connection.
         """
+        self._total_time = abs(self._total_time)
         _bytes = 0
-        _elapsed_time = time.time() - self._total_time
         for stream_id, stats in self._stats_dict.items():
             elapsed_time = abs(stats['total_time'])
             if elapsed_time > 0:
@@ -372,9 +381,10 @@ class QuicConnection:
                 print(f'---------------- at rate {float(total_bytes) / elapsed_time} bytes/second')
                 print(f'---------------- at rate {float(total_packets) / elapsed_time} packets/second')
         print(f'Statistics for all active streams:')
-        print(f'------- rate {float(_bytes) / _elapsed_time} bytes/second, {_bytes} bytes total')
+        print(f'------- rate {float(_bytes) / self._total_time} bytes/second, {_bytes} bytes total')
         print(
-            f'---------------- rate {float(self._received_packets_counter) / _elapsed_time} packets/second, {self._received_packets_counter} packets total')
+            f'------- rate {float(self._received_packets_counter) / self._total_time} packets/second, {self._received_packets_counter} packets total')
+        print(f'total time elapsed: {self._total_time} seconds')
 
 
 # Example usage
