@@ -183,7 +183,7 @@ class QuicConnection:
             stream['total_time'] = start_time
         while self._active_streams_ids:
             packet = self._create_packet()
-            self._send_packet(packet)
+            self._send_packet(packet.pack())
         self._close_connection()
 
     def _send_packet_size(self):
@@ -195,7 +195,7 @@ class QuicConnection:
         """
         self._packet_size = PACKET_SIZE
         packet_size_bytes = self._packet_size.to_bytes(Constants.PACKET_SIZE_BYTES, 'big')
-        return self._socket.sendto(packet_size_bytes, self._remote_addr) > Constants.ZERO
+        return self._send_packet(packet_size_bytes)
 
     def _create_packet(self) -> Packet:
         """
@@ -207,7 +207,7 @@ class QuicConnection:
             Packet: The created packet with frames from different streams.
         """
         self._generate_streams_frames()
-        remaining_space = PACKET_SIZE
+        remaining_space = self._packet_size
         packet = Packet(int(not self._connection_id), self._sent_packets_counter)
         remaining_space -= getsizeof(packet)
         while remaining_space > Constants.ZERO:
@@ -253,15 +253,14 @@ class QuicConnection:
         except IndexError:
             print("No more streams!")
 
-
-    def _send_packet(self, packet: Packet):
+    def _send_packet(self, packet: bytes):
         """
         Send a packet to the remote address.
 
         Args:
             packet (Packet): The packet to send.
         """
-        return self._socket.sendto(packet.pack(), self._remote_addr) > 0
+        return self._socket.sendto(packet, self._remote_addr) > 0
 
     def receive_packets(self):
         """
@@ -373,7 +372,8 @@ class QuicConnection:
                 print(f'---------------- at rate {float(total_packets) / elapsed_time} packets/second')
         print(f'Statistics for all active streams:')
         print(f'------- rate {float(_bytes) / _elapsed_time} bytes/second, {_bytes} bytes total')
-        print(f'---------------- rate {float(self._received_packets_counter) / _elapsed_time} packets/second, {self._received_packets_counter} packets total')
+        print(
+            f'---------------- rate {float(self._received_packets_counter) / _elapsed_time} packets/second, {self._received_packets_counter} packets total')
 
 
 # Example usage

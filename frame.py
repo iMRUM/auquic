@@ -27,6 +27,18 @@ class FrameStream(StreamFrameABC):
     data: bytes
 
     def encode(self) -> bytes:
+        """
+        Encodes the frame into bytes.
+
+        The encoding process includes:
+        - Converting the stream ID to bytes.
+        - Setting the type field based on the presence of offset, length, and fin attributes.
+        - Appending the offset, length, and data to the values list if they are present.
+        - Combining all parts into a single bytes object.
+
+        Returns:
+            bytes: The encoded frame as bytes.
+        """
         values = [self.stream_id.to_bytes(Constants.STREAM_ID_LENGTH, 'big')]
         type_field = Constants.MIN_TYPE_FIELD
         if self.offset != 0:
@@ -45,11 +57,32 @@ class FrameStream(StreamFrameABC):
 
     @classmethod
     def decode(cls, frame: bytes):
-        offset, length, fin, stream_id, index, stream_data = FrameStream._decode(frame)
-        return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=stream_data)
+        """
+        Decodes a frame encoded in bytes into a FrameStream instance by delegation to _decode.
+
+        Args:
+            frame (bytes): The encoded frame as bytes.
+
+        Returns:
+            FrameStream: A new FrameStream instance with the decoded values.
+        """
+        return FrameStream._decode(frame)
 
     @classmethod
     def _decode(cls, frame: bytes):
+        """
+        Decodes a frame encoded in bytes into a FrameStream instance.
+
+        The decoding process includes:
+        - Extracting the offset, length, fin flag, stream ID, and stream data from the frame.
+        - Creating a new FrameStream instance with the extracted values.
+
+        Args:
+            frame (bytes): The encoded frame as bytes.
+
+        Returns:
+            FrameStream: A new FrameStream instance with the decoded values.
+        """
         offset = Constants.ZERO
         length = Constants.ZERO
         fin = False
@@ -69,7 +102,8 @@ class FrameStream(StreamFrameABC):
         # Check if the FIN bit is set
         if type_field & Constants.FIN_BIT:
             fin = True
-        return offset, length, fin, stream_id, index, frame[index:]
+
+        return FrameStream(stream_id=stream_id, offset=offset, length=length, fin=fin, data=frame[index:])
 
     @staticmethod
     def end_of_attrs(frame: bytes) -> int:
