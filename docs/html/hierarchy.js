@@ -6,7 +6,9 @@ var hierarchy =
     [ "quic.QuicConnection", "classquic_1_1QuicConnection.html", null ],
     [ "stream.Stream", "classstream_1_1Stream.html", null ],
     [ "unittest.TestCase", null, [
-      [ "stream.MyTestCase", "classstream_1_1MyTestCase.html", null ]
+      [ "test_stream.TestStream", "classtest__stream_1_1TestStream.html", null ],
+      [ "test_stream.TestStreamReceiver", "classtest__stream_1_1TestStreamReceiver.html", null ],
+      [ "test_stream.TestStreamSender", "classtest__stream_1_1TestStreamSender.html", null ]
     ] ],
     [ "ABC", null, [
       [ "frame.StreamFrameABC", "classframe_1_1StreamFrameABC.html", [
