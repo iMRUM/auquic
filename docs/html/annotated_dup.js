@@ -15,10 +15,14 @@ var annotated_dup =
       [ "QuicConnection", "classquic_1_1QuicConnection.html", "classquic_1_1QuicConnection" ]
     ] ],
     [ "stream", "namespacestream.html", [
-      [ "MyTestCase", "classstream_1_1MyTestCase.html", "classstream_1_1MyTestCase" ],
       [ "Stream", "classstream_1_1Stream.html", "classstream_1_1Stream" ],
       [ "StreamEndpointABC", "classstream_1_1StreamEndpointABC.html", "classstream_1_1StreamEndpointABC" ],
       [ "StreamReceiver", "classstream_1_1StreamReceiver.html", "classstream_1_1StreamReceiver" ],
       [ "StreamSender", "classstream_1_1StreamSender.html", "classstream_1_1StreamSender" ]
+    ] ],
+    [ "test_stream", "namespacetest__stream.html", [
+      [ "TestStream", "classtest__stream_1_1TestStream.html", "classtest__stream_1_1TestStream" ],
+      [ "TestStreamReceiver", "classtest__stream_1_1TestStreamReceiver.html", "classtest__stream_1_1TestStreamReceiver" ],
+      [ "TestStreamSender", "classtest__stream_1_1TestStreamSender.html", "classtest__stream_1_1TestStreamSender" ]
     ] ]
 ];
