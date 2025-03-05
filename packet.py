@@ -1,3 +1,10 @@
+"""
+@file packet.py
+@brief Implementation of QUIC packet data structures.
+@details Contains classes for QUIC packet headers and packet assembly,
+         with methods for encoding and decoding packets.
+"""
+
 from dataclasses import dataclass, field
 
 from constants import Constants
@@ -5,31 +12,27 @@ from frame import FrameStream
 
 
 @dataclass
-class PacketHeader:  # total 1 byte
+class PacketHeader:
     """
-    Represents the header of a QUIC packet.
+    @brief Represents the header of a QUIC packet.
 
-    Attributes:
-        packet_number_length (int): The length of the packet number field in bytes (2 bits).
-        header_form (bool): The header form bit (1 bit).
-        fixed_bit (bool): The fixed bit (1 bit).
-        spin_bit (bool): The spin bit (1 bit).
-        key_phase (bool): The key phase bit (1 bit).
-        reserved_bits (int): The reserved bits (2 bits).
+    @details Contains fields specified in QUIC protocol for packet headers.
     """
-    packet_number_length: int  # 2 bits, one less than the length of the Packet Number field in bytes
-    header_form: bool = False  # 1 bit
-    fixed_bit: bool = False  # 1 bit
-    spin_bit: bool = False  # 1 bit
-    key_phase: bool = False  # 1 bit
-    reserved_bits: int = Constants.ZERO  # 2 bits
+
+    packet_number_length: int  # !< The length of the packet number field in bytes (2 bits)
+    header_form: bool = False  # !< The header form bit (1 bit)
+    fixed_bit: bool = False  # !< The fixed bit (1 bit)
+    spin_bit: bool = False  # !< The spin bit (1 bit)
+    key_phase: bool = False  # !< The key phase bit (1 bit)
+    reserved_bits: int = Constants.ZERO  # !< The reserved bits (2 bits)
 
     def pack(self) -> bytes:
         """
-        Packs the PacketHeader by shifting and combining the header attrs into a single byte.
+        @brief Packs the PacketHeader into bytes.
 
-        Returns:
-            bytes: The packed header as bytes.
+        @details Shifts and combines the header attributes into a single byte.
+
+        @return The packed header as bytes.
         """
         first_byte = (
                 (int(self.header_form) << Constants.FORM_SHIFT) |
@@ -44,13 +47,12 @@ class PacketHeader:  # total 1 byte
     @classmethod
     def unpack(cls, header: bytes) -> 'PacketHeader':
         """
-        Unpacks bytes into a PacketHeader by extracting each field from the header byte using bitwise operations
+        @brief Unpacks bytes into a PacketHeader.
 
-        Args:
-            header (bytes): The packed header as bytes.
+        @details Extracts each field from the header byte using bitwise operations.
 
-        Returns:
-            PacketHeader: The unpacked PacketHeader object.
+        @param header The packed header as bytes.
+        @return The unpacked PacketHeader object.
         """
         header_form = int.from_bytes(header, "big") & Constants.FORM_MASK  # 1 bit
         fixed_bit = int.from_bytes(header, "big") & Constants.FIXED_MASK  # 1 bit
@@ -66,29 +68,27 @@ class PacketHeader:  # total 1 byte
 @dataclass
 class Packet:
     """
-    This class represents a QUIC packet with a destination connection ID, packet number, and payload as list of frames.
+    @brief Represents a QUIC packet.
 
-    Attributes:
-        destination_connection_id (int): The destination connection ID (8 bytes in this implementation).
-        packet_number (int): The packet number (4 bytes in this implementation).
-        payload (list[FrameStream]): The payload containing a list of FrameStream objects.
+    @details Contains a destination connection ID, packet number, 
+             and payload as list of frames.
     """
-    destination_connection_id: int  # 8 bytes in this implementation
-    packet_number: int  # 4 bytes in this implementation
-    payload: list[FrameStream] = field(default_factory=list)
+
+    destination_connection_id: int  # !< The destination connection ID (8 bytes in this implementation)
+    packet_number: int  # !< The packet number (4 bytes in this implementation)
+    payload: list[FrameStream] = field(default_factory=list)  # !< The payload containing a list of FrameStream objects
 
     def pack(self) -> bytes:
         """
-        Packs the packet into bytes.
+        @brief Packs the packet into bytes.
 
-        The process includes:
-        - Packing the header.
-        - Converting the destination connection ID to bytes.
-        - Converting the packet number to bytes based on its length.
-        - Encoding each frame in the payload and appending it to the packed packet.
+        @details The process includes:
+                - Packing the header.
+                - Converting the destination connection ID to bytes.
+                - Converting the packet number to bytes based on its length.
+                - Encoding each frame in the payload and appending it to the packed packet.
 
-        Returns:
-            bytes: The packed packet as bytes.
+        @return The packed packet as bytes.
         """
         packet_number_length = (self.packet_number.bit_length() + Constants.SEVEN) // Constants.EIGHT
         packed_header = PacketHeader(packet_number_length).pack()
@@ -102,19 +102,16 @@ class Packet:
     @classmethod
     def unpack(cls, packet_bytes: bytes) -> 'Packet':
         """
-        Unpacks bytes into a Packet object.
+        @brief Unpacks bytes into a Packet object.
 
-        The process includes:
-        - Unpacking the header to get the packet number length.
-        - Extracting the destination connection ID from the bytes.
-        - Extracting the packet number from the bytes.
-        - Extracting the payload frames from the remaining bytes.
+        @details The process includes:
+                - Unpacking the header to get the packet number length.
+                - Extracting the destination connection ID from the bytes.
+                - Extracting the packet number from the bytes.
+                - Extracting the payload frames from the remaining bytes.
 
-        Args:
-            packet_bytes (bytes): The packed packet as bytes.
-
-        Returns:
-            Packet: The unpacked Packet object.
+        @param packet_bytes The packed packet as bytes.
+        @return The unpacked Packet object.
         """
         packet_number_length = PacketHeader.unpack(packet_bytes[:Constants.HEADER_LENGTH]).packet_number_length
         index = Constants.HEADER_LENGTH
@@ -133,19 +130,16 @@ class Packet:
     @staticmethod
     def get_frames_from_payload_bytes(payload_bytes: bytes) -> list[FrameStream]:
         """
-        Extracts frames from the payload bytes.
+        @brief Extracts frames from the payload bytes.
 
-        The process includes:
-        - Iterating through the payload bytes.
-        - Determining the end of attributes for each frame.
-        - Determining the length of the frame data.
-        - Decoding each frame and appending it to the list of frames.
+        @details The process includes:
+                - Iterating through the payload bytes.
+                - Determining the end of attributes for each frame.
+                - Determining the length of the frame data.
+                - Decoding each frame and appending it to the list of frames.
 
-        Args:
-            payload_bytes (bytes): The payload bytes.
-
-        Returns:
-            list[FrameStream]: The list of decoded FrameStream objects.
+        @param payload_bytes The payload bytes.
+        @return The list of decoded FrameStream objects.
         """
         index = Constants.START
         frames: list[FrameStream] = []
@@ -159,9 +153,8 @@ class Packet:
 
     def add_frame(self, frame: 'FrameStream'):
         """
-        Adds a frame to the packet's payload.
+        @brief Adds a frame to the packet's payload.
 
-        Args:
-            frame (FrameStream): The frame to be added.
+        @param frame The frame to be added.
         """
         self.payload.append(frame)

@@ -1,95 +1,103 @@
+"""
+@file stream.py
+@brief Implementation of QUIC stream handling classes.
+@details Contains Stream, StreamEndpointABC, StreamSender, and StreamReceiver classes
+         for managing data flow in QUIC connections.
+"""
+
 from abc import ABC, abstractmethod
 from frame import FrameStream
 from constants import Constants
 
 
 class Stream:
+    """
+    @brief Represents a QUIC stream that handles data transfer.
+
+    @details A Stream can be unidirectional or bidirectional, and handles
+             both sending and receiving data through dedicated endpoints.
+    """
+
     def __init__(self, stream_id: int, is_uni: bool, is_s_initiated: bool):
         """
-        Initialize a Stream instance.
+        @brief Initialize a Stream instance.
 
-        Args:
-            stream_id (int): Unique identifier for the stream, generated already.
-            is_uni (bool): Specifies if the stream is unidirectional.
-            is_s_initiated (bool): Specifies if the stream was initiated by the server (receiver).
+        @param stream_id Unique identifier for the stream, generated already.
+        @param is_uni Specifies if the stream is unidirectional.
+        @param is_s_initiated Specifies if the stream was initiated by the server (receiver).
         """
         self._stream_id = stream_id
         self._is_uni = is_uni
         self._is_s_initiated = is_s_initiated
-        self._sender = StreamSender(stream_id, (is_uni and not is_s_initiated) or not is_uni) # if uni and not s-initiated it's a send only stream, or it's a bidi stream
-        self._receiver = StreamReceiver(stream_id, (is_uni and is_s_initiated) or not is_uni) # if uni and s-initiated it's a receive only stream, or it's a bidi stream
+        self._sender = StreamSender(stream_id, (
+                    is_uni and not is_s_initiated) or not is_uni)  # if uni and not s-initiated it's a send only stream, or it's a bidi stream
+        self._receiver = StreamReceiver(stream_id, (
+                    is_uni and is_s_initiated) or not is_uni)  # if uni and s-initiated it's a receive only stream, or it's a bidi stream
 
     def has_data(self) -> bool:
         """
-        Check if there is any data to send or receive.
+        @brief Check if there is any data to send or receive.
 
-        Returns:
-            bool: True if there is data in the sender or receiver buffer, False otherwise.
+        @return True if there is data in the sender or receiver buffer, False otherwise.
         """
         return self._sender.has_data() or self._receiver.has_data()
 
     def get_stream_id(self) -> int:
         """
-        Getter for stream ID.
+        @brief Getter for stream ID.
 
-        Returns:
-            int: stream ID.
+        @return The stream ID.
         """
         return self._stream_id
 
     def add_data_to_stream(self, data: bytes):
         """
-        Add data to the stream by delegation to StreamSender.
+        @brief Add data to the stream by delegation to StreamSender.
 
-        Args:
-            data (bytes): Data to be added to the send buffer.
+        @param data Data to be added to the send buffer.
         """
         self._sender.add_data_to_buffer(data)
 
     def generate_stream_frames(self, max_size: int):
         """
-       Stream frames generation by delegation to StreamSender.
-       Generate stream frames for sending based on the maximum frame size.
+        @brief Stream frames generation by delegation to StreamSender.
 
-       Args: max_size (int): The size of the payload_size which is determined by size of payload-packet/num of streams on
-       that packet.
+        @details Generate stream frames for sending based on the maximum frame size.
 
+        @param max_size The size of the payload_size which is determined by size of 
+                      payload-packet/num of streams on that packet.
         """
         self._sender.generate_stream_frames(max_size)
 
     def send_next_frame(self) -> FrameStream:
         """
-        Retrieve the next frame to be sent from the sender's list.
+        @brief Retrieve the next frame to be sent from the sender's list.
 
-        Returns:
-            FrameStream: The next frame to be sent.
+        @return The next frame to be sent.
         """
         return self._sender.send_next_frame()
 
-    def receive_frame(self, frame: FrameStream):  # receiving part
+    def receive_frame(self, frame: FrameStream):
         """
-        Process a received frame by delegating it to the receiver.
+        @brief Process a received frame by delegating it to the receiver.
 
-        Args:
-            frame (FrameStream): The received frame.
+        @param frame The received frame.
         """
         self._receiver.stream_frame_recvd(frame)
 
     def get_data_received(self) -> bytes:
         """
-        Retrieve the data received on the stream.
+        @brief Retrieve the data received on the stream.
 
-        Returns:
-            bytes: The data received on the stream.
+        @return The data received on the stream.
         """
         return self._receiver.get_data_from_buffer()
 
     def is_finished(self) -> bool:
         """
-        Check if the stream has finished sending and receiving data.
+        @brief Check if the stream has finished sending and receiving data.
 
-        Returns:
-            bool: True if the stream is in a terminal state, False otherwise.
+        @return True if the stream is in a terminal state, False otherwise.
         """
         if not self._is_uni:
             return self._receiver.is_terminal_state() or self._sender.is_terminal_state()
@@ -101,38 +109,39 @@ class Stream:
     @staticmethod
     def is_uni_by_sid(stream_id: int) -> bool:
         """
-        Determine if a stream is unidirectional based on stream ID.
+        @brief Determine if a stream is unidirectional based on stream ID.
 
-        Args:
-            stream_id (int): stream ID.
-
-        Returns:
-            bool: True if the stream is unidirectional, False otherwise.
+        @param stream_id The stream ID.
+        @return True if the stream is unidirectional, False otherwise.
         """
         return bool(stream_id & Constants.DIRECTION_MASK)
 
     @staticmethod
     def is_s_init_by_sid(stream_id: int) -> bool:
         """
-        Determine if a stream was initiated by a server based on its stream ID.
+        @brief Determine if a stream was initiated by a server based on its stream ID.
 
-        Args:
-            stream_id (int): stream ID.
-
-        Returns:
-            bool: True if the stream was initiated by a server, False otherwise.
+        @param stream_id The stream ID.
+        @return True if the stream was initiated by a server, False otherwise.
         """
         return bool(stream_id & Constants.INIT_BY_MASK)
 
 
 class StreamEndpointABC(ABC):
+    """
+    @brief Abstract base class for stream endpoints.
+
+    @details Provides common functionality for sending and receiving endpoints
+             of a QUIC stream.
+    """
+
     def __init__(self, stream_id: int, is_usable: bool):
         """
-        Abstract Constructor for StreamEndpointABC abstract class.
+        @brief Abstract Constructor for StreamEndpointABC abstract class.
 
-        Args:
-            stream_id (int): The stream ID of this endpoint.
-            is_usable (bool): Specifies if the stream endpoint is 'usable'."""
+        @param stream_id The stream ID of this endpoint.
+        @param is_usable Specifies if the stream endpoint is 'usable'.
+        """
         self._stream_id: int = stream_id
         self._curr_offset: int = Constants.ZERO
         self._buffer: bytes = b""
@@ -141,13 +150,10 @@ class StreamEndpointABC(ABC):
 
     def _set_state(self, state: int) -> bool:
         """
-        Set the state of the endpoint.
+        @brief Set the state of the endpoint.
 
-        Args:
-            state (int): new state.
-
-        Returns:
-            bool: True if _state was set successfully, False otherwise.
+        @param state New state.
+        @return True if _state was set successfully, False otherwise.
         """
         try:
             self._state = state
@@ -159,59 +165,63 @@ class StreamEndpointABC(ABC):
     @abstractmethod
     def _add_data_to_buffer(self, data: bytes):
         """
-        Add data to the buffer.
+        @brief Add data to the buffer.
 
-        Args:
-            data (bytes): The data to add to the buffer.
+        @param data The data to add to the buffer.
         """
         pass
 
     def has_data(self) -> bool:
         """
-        Check if the buffer contains data.
+        @brief Check if the buffer contains data.
 
-        Returns:
-            bool: True if the buffer has data, False otherwise.
+        @return True if the buffer has data, False otherwise.
         """
         return bool(self._buffer)
 
     def is_terminal_state(self) -> bool:
         """
-        Check if the endpoint has reached a terminal state.
+        @brief Check if the endpoint has reached a terminal state.
 
-        Returns:
-            bool: True if the state is DATA_RECVD, False otherwise.
+        @return True if the state is DATA_RECVD, False otherwise.
         """
         return self._state == Constants.DATA_RECVD or not self._is_usable
 
 
 class StreamSender(StreamEndpointABC):
+    """
+    @brief Represents the sending endpoint of a QUIC stream.
+
+    @details Handles buffering of data to send, generation of stream frames,
+             and sending frames over the network.
+    """
+
     def __init__(self, stream_id: int, is_usable: bool):
         """
-        Initialize a StreamSender instance.
+        @brief Initialize a StreamSender instance.
 
-        Args:
-            stream_id (int): The stream ID associated with this sender.
-            @param is_usable:
+        @param stream_id The stream ID associated with this sender.
+        @param is_usable Whether this sender can be used for sending data.
         """
         super().__init__(stream_id, is_usable)
         self._stream_frames = []
 
     def add_data_to_buffer(self, data: bytes):
         """
-        Add data to the sender's buffer.
+        @brief Add data to the sender's buffer.
 
-        Args:
-            data (bytes): The data to add.
+        @param data The data to add.
         """
         self._add_data_to_buffer(data)
 
     def _add_data_to_buffer(self, data: bytes):
         """
-        Internal method to add data to the buffer, only if the stream is in READY state.
+        @brief Internal method to add data to the buffer.
 
-        Args:
-            data (bytes): The data to add.
+        @details Only adds data if the stream is in READY state.
+
+        @param data The data to add.
+        @throws ValueError If the stream is not in READY state.
         """
         if self._state == Constants.READY:
             self._buffer += data
@@ -220,10 +230,11 @@ class StreamSender(StreamEndpointABC):
 
     def generate_stream_frames(self, max_size: int):
         """
-        Generate frames for the data in the buffer, splitting it into chunks if necessary.
+        @brief Generate frames for the data in the buffer.
 
-        Args:
-            max_size (int): The maximum size of each frame.
+        @details Splits data into chunks if necessary.
+
+        @param max_size The maximum size of each frame.
         """
         total_stream_frames = self._get_total_stream_frames_amount(max_size)
         if total_stream_frames > Constants.ONE:
@@ -236,13 +247,10 @@ class StreamSender(StreamEndpointABC):
 
     def _get_total_stream_frames_amount(self, max_size: int) -> int:
         """
-        Calculate the number of frames required for the data in the buffer.
+        @brief Calculate the number of frames required for the data in the buffer.
 
-        Args:
-            max_size (int): The maximum size of each frame.
-
-        Returns:
-            int: The total number of frames.
+        @param max_size The maximum size of each frame.
+        @return The total number of frames.
         """
         if len(self._buffer) < max_size:
             return Constants.ONE
@@ -251,10 +259,11 @@ class StreamSender(StreamEndpointABC):
 
     def generate_fin_frame(self) -> FrameStream:
         """
-        Generate a frame with the FIN bit set, indicating the end of the stream.
+        @brief Generate a frame with the FIN bit set.
 
-        Returns:
-            FrameStream: The final frame for the stream.
+        @details This indicates the end of the stream.
+
+        @return The final frame for the stream.
         """
         self._set_state(Constants.DATA_SENT)
         return FrameStream(stream_id=self._stream_id, offset=self._curr_offset,
@@ -265,10 +274,9 @@ class StreamSender(StreamEndpointABC):
 
     def send_next_frame(self) -> FrameStream:
         """
-        Send the next frame in the queue.
+        @brief Send the next frame in the queue.
 
-        Returns:
-            FrameStream: The next frame to be sent.
+        @return The next frame to be sent.
         """
         if self._stream_frames:
             frame = self._stream_frames.pop(Constants.ZERO)
@@ -279,23 +287,28 @@ class StreamSender(StreamEndpointABC):
 
 
 class StreamReceiver(StreamEndpointABC):
+    """
+    @brief Represents the receiving endpoint of a QUIC stream.
+
+    @details Handles reception of stream frames, ordering them by offset,
+             and assembling the complete stream data.
+    """
+
     def __init__(self, stream_id: int, is_usable: bool):
         """
-        Initialize a StreamReceiver instance.
+        @brief Initialize a StreamReceiver instance.
 
-        Args:
-            stream_id (int): The stream ID associated with this receiver.
-            @param is_usable:
+        @param stream_id The stream ID associated with this receiver.
+        @param is_usable Whether this receiver can be used for receiving data.
         """
         super().__init__(stream_id, is_usable)
         self._recv_frame_dict: dict[int:bytes] = {}  # such that K = offset, V = data
 
     def stream_frame_recvd(self, frame: FrameStream):
         """
-        Process a received frame and add it to the receiver's buffer.
+        @brief Process a received frame and add it to the receiver's buffer.
 
-        Args:
-            frame (FrameStream): The received frame.
+        @param frame The received frame.
         """
         if frame.fin:
             self._fin_recvd()
@@ -303,10 +316,11 @@ class StreamReceiver(StreamEndpointABC):
 
     def _add_frame_to_recv_dict(self, frame: FrameStream):
         """
-        Add a received frame to the receiver's dictionary and update the current offset.
+        @brief Add a received frame to the receiver's dictionary.
 
-        Args:
-            frame (FrameStream): The received frame.
+        @details Updates the current offset.
+
+        @param frame The received frame.
         """
         self._recv_frame_dict[frame.offset] = frame.data
         self._curr_offset += len(frame.data)
@@ -315,13 +329,17 @@ class StreamReceiver(StreamEndpointABC):
 
     def _fin_recvd(self):
         """
-        Handle the reception of a FIN frame, indicating that all data has been received.
+        @brief Handle the reception of a FIN frame.
+
+        @details Indicates that all data has been received.
         """
         self._set_state(Constants.SIZE_KNOWN)
 
     def _convert_dict_to_buffer(self):
         """
-        Convert the received frames in the dictionary to a single buffer, sorted by offset.
+        @brief Convert the received frames in the dictionary to a single buffer.
+
+        @details Sorts frames by offset.
         """
         self._recv_frame_dict = dict(sorted(self._recv_frame_dict.items()))  # Sort frames by their offset.
         for data in self._recv_frame_dict.values():
@@ -330,10 +348,10 @@ class StreamReceiver(StreamEndpointABC):
 
     def _add_data_to_buffer(self, data: bytes):
         """
-        Add data to the buffer if the size is known.
+        @brief Add data to the buffer if the size is known.
 
-        Args:
-            data (bytes): The data to add.
+        @param data The data to add.
+        @throws ValueError If the stream size is not known.
         """
         if self._state == Constants.SIZE_KNOWN:
             self._buffer += data
@@ -342,10 +360,10 @@ class StreamReceiver(StreamEndpointABC):
 
     def get_data_from_buffer(self) -> bytes:
         """
-        Retrieve the data from the buffer.
+        @brief Retrieve the data from the buffer.
 
-        Returns:
-            bytes: The data in the buffer.
+        @return The data in the buffer.
+        @throws ValueError If the stream is closed.
         """
         if self._state == Constants.DATA_RECVD:
             try:
