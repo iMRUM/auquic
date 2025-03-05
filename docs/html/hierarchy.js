@@ -6,6 +6,10 @@ var hierarchy =
     [ "quic.QuicConnection", "classquic_1_1QuicConnection.html", null ],
     [ "stream.Stream", "classstream_1_1Stream.html", null ],
     [ "unittest.TestCase", null, [
+      [ "test_frame.TestFrameStream", "classtest__frame_1_1TestFrameStream.html", null ],
+      [ "test_packet.TestPacket", "classtest__packet_1_1TestPacket.html", null ],
+      [ "test_packet.TestPacketHeader", "classtest__packet_1_1TestPacketHeader.html", null ],
+      [ "test_quic.TestQuicConnection", "classtest__quic_1_1TestQuicConnection.html", null ],
       [ "test_stream.TestStream", "classtest__stream_1_1TestStream.html", null ],
       [ "test_stream.TestStreamReceiver", "classtest__stream_1_1TestStreamReceiver.html", null ],
       [ "test_stream.TestStreamSender", "classtest__stream_1_1TestStreamSender.html", null ]

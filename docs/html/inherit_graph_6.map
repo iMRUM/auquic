@@ -1,9 +1,17 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="Node000000" title=" " alt="" coords="5,55,131,80"/>
-<area shape="rect" id="Node000001" href="$classtest__stream_1_1TestStream.html" title=" " alt="" coords="205,5,367,31"/>
-<area shape="poly" id="edge6_Node000000_Node000001" title=" " alt="" coords="136,49,178,39,227,28,229,33,179,45,137,54"/>
-<area shape="rect" id="Node000002" href="$classtest__stream_1_1TestStreamReceiver.html" title=" " alt="" coords="179,55,393,80"/>
-<area shape="poly" id="edge7_Node000000_Node000002" title=" " alt="" coords="145,65,179,65,179,70,145,70"/>
-<area shape="rect" id="Node000003" href="$classtest__stream_1_1TestStreamSender.html" title=" " alt="" coords="185,104,387,129"/>
-<area shape="poly" id="edge8_Node000000_Node000003" title=" " alt="" coords="139,80,230,101,228,107,137,86"/>
+<area shape="rect" id="Node000000" title=" " alt="" coords="5,153,131,179"/>
+<area shape="rect" id="Node000001" href="$classtest__frame_1_1TestFrameStream.html" title=" " alt="" coords="190,5,382,31"/>
+<area shape="poly" id="edge6_Node000000_Node000001" title=" " alt="" coords="82,140,120,89,147,62,177,40,202,28,204,33,180,44,151,66,124,92,86,143"/>
+<area shape="rect" id="Node000002" href="$classtest__packet_1_1TestPacket.html" title=" " alt="" coords="206,55,366,80"/>
+<area shape="poly" id="edge7_Node000000_Node000002" title=" " alt="" coords="93,142,132,114,178,89,211,78,213,83,180,94,134,119,96,147"/>
+<area shape="rect" id="Node000003" href="$classtest__packet_1_1TestPacketHeader.html" title=" " alt="" coords="185,104,387,129"/>
+<area shape="poly" id="edge8_Node000000_Node000003" title=" " alt="" coords="136,148,178,138,227,127,229,132,179,143,137,153"/>
+<area shape="rect" id="Node000004" href="$classtest__quic_1_1TestQuicConnection.html" title=" " alt="" coords="187,153,385,179"/>
+<area shape="poly" id="edge9_Node000000_Node000004" title=" " alt="" coords="145,163,187,163,187,169,145,169"/>
+<area shape="rect" id="Node000005" href="$classtest__stream_1_1TestStream.html" title=" " alt="" coords="205,203,367,228"/>
+<area shape="poly" id="edge10_Node000000_Node000005" title=" " alt="" coords="139,179,230,200,228,205,137,184"/>
+<area shape="rect" id="Node000006" href="$classtest__stream_1_1TestStreamReceiver.html" title=" " alt="" coords="179,252,393,277"/>
+<area shape="poly" id="edge11_Node000000_Node000006" title=" " alt="" coords="97,185,135,212,180,237,216,249,215,254,178,242,132,217,94,189"/>
+<area shape="rect" id="Node000007" href="$classtest__stream_1_1TestStreamSender.html" title=" " alt="" coords="185,301,387,327"/>
+<area shape="poly" id="edge12_Node000000_Node000007" title=" " alt="" coords="86,189,125,239,151,265,180,286,208,299,206,304,177,291,147,269,121,242,82,192"/>
 </map>

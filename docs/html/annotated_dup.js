@@ -20,6 +20,16 @@ var annotated_dup =
       [ "StreamReceiver", "classstream_1_1StreamReceiver.html", "classstream_1_1StreamReceiver" ],
       [ "StreamSender", "classstream_1_1StreamSender.html", "classstream_1_1StreamSender" ]
     ] ],
+    [ "test_frame", "namespacetest__frame.html", [
+      [ "TestFrameStream", "classtest__frame_1_1TestFrameStream.html", "classtest__frame_1_1TestFrameStream" ]
+    ] ],
+    [ "test_packet", "namespacetest__packet.html", [
+      [ "TestPacket", "classtest__packet_1_1TestPacket.html", "classtest__packet_1_1TestPacket" ],
+      [ "TestPacketHeader", "classtest__packet_1_1TestPacketHeader.html", "classtest__packet_1_1TestPacketHeader" ]
+    ] ],
+    [ "test_quic", "namespacetest__quic.html", [
+      [ "TestQuicConnection", "classtest__quic_1_1TestQuicConnection.html", "classtest__quic_1_1TestQuicConnection" ]
+    ] ],
     [ "test_stream", "namespacetest__stream.html", [
       [ "TestStream", "classtest__stream_1_1TestStream.html", "classtest__stream_1_1TestStream" ],
       [ "TestStreamReceiver", "classtest__stream_1_1TestStreamReceiver.html", "classtest__stream_1_1TestStreamReceiver" ],

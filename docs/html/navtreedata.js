@@ -54,7 +54,7 @@ var NAVTREEINDEX =
 [
 "annotated.html",
 "classquic_1_1QuicConnection.html#aa92329e897b421cb1bbdf7bb986c5144",
-"receiver_8py_source.html"
+"classtest__quic_1_1TestQuicConnection.html#acf0663daed1de0900376fb3c3d7e4cba"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';
