@@ -1,0 +1,5 @@
+<map id="test_packet.TestPacket" name="test_packet.TestPacket">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,119,181,399"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="35,5,152,71"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="96,84,96,119,91,119,91,84"/>
+</map>

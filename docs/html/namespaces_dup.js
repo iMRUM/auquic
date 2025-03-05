@@ -12,5 +12,8 @@ var namespaces_dup =
       [ "set_file", "namespacesender.html#ad22233b6b0ea487099a752a1fe41449c", null ]
     ] ],
     [ "stream", "namespacestream.html", "namespacestream" ],
+    [ "test_frame", "namespacetest__frame.html", "namespacetest__frame" ],
+    [ "test_packet", "namespacetest__packet.html", "namespacetest__packet" ],
+    [ "test_quic", "namespacetest__quic.html", "namespacetest__quic" ],
     [ "test_stream", "namespacetest__stream.html", "namespacetest__stream" ]
 ];
