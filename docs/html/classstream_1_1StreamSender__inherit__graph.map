@@ -1,0 +1,7 @@
+<map id="stream.StreamSender" name="stream.StreamSender">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,332,184,572"/>
+<area shape="rect" id="Node000002" href="$classstream_1_1StreamEndpointABC.html" title=" " alt="" coords="5,119,184,284"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="97,298,97,332,92,332,92,298"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="73,5,116,71"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="97,84,97,118,92,118,92,84"/>
+</map>

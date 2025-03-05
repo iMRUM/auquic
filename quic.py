@@ -1,3 +1,10 @@
+"""
+@file quic.py
+@brief Implementation of QUIC connection handling.
+@details Contains the QuicConnection class which manages QUIC connections,
+         including stream creation, packet sending/receiving, and statistics tracking.
+"""
+
 import socket
 import time
 import random
@@ -13,14 +20,20 @@ PACKET_SIZE = random.randint(Constants.MIN_PACKET_SIZE, Constants.MAX_PACKET_SIZ
 
 
 class QuicConnection:
+    """
+    @brief Manages a QUIC connection.
+
+    @details Handles stream creation, packet assembly, sending/receiving data,
+             and tracking connection statistics.
+    """
+
     def __init__(self, connection_id: int, local_addr: tuple, remote_addr: tuple):
         """
-        Initialize a QuicConnection instance.
+        @brief Initialize a QuicConnection instance.
 
-        Args:
-            connection_id (int): The ID of the connection (0 for client, 1 for server).
-            local_addr (tuple): The local address for the connection (IP, port).
-            remote_addr (tuple): The remote address for the connection (IP, port).
+        @param connection_id The ID of the connection (0 for client, 1 for server).
+        @param local_addr The local address for the connection (IP, port).
+        @param remote_addr The remote address for the connection (IP, port).
         """
         self._connection_id = connection_id
         self._local_addr = local_addr
@@ -40,14 +53,11 @@ class QuicConnection:
 
     def get_stream(self, initiated_by: int, direction: int) -> 'Stream':
         """
-        Retrieve or create a new stream for the connection.
+        @brief Retrieve or create a new stream for the connection.
 
-        Args:
-            initiated_by (int): Indicates whether the stream was initiated by 'client'(0) or 'server'(1).
-            direction (int): Indicates if the stream is bidirectional(0) or unidirectional(1).
-
-        Returns:
-            Stream: The created or retrieved stream.
+        @param initiated_by Indicates whether the stream was initiated by 'client'(0) or 'server'(1).
+        @param direction Indicates if the stream is bidirectional(0) or unidirectional(1).
+        @return The created or retrieved stream.
         """
         stream_id = self._stream_id_generator(initiated_by, direction)
         if not self._is_stream_id_in_dict(stream_id):
@@ -56,14 +66,13 @@ class QuicConnection:
 
     def _stream_id_generator(self, initiated_by: int, direction: int) -> int:
         """
-        Generate a unique stream ID based on the stream counter, initiator, and direction.
+        @brief Generate a unique stream ID.
 
-        Args:
-            initiated_by (int): Indicates whether the stream was initiated by 'client'(0) or 'server'(1).
-            direction (int): Indicates whether the stream is bidirectional(0) or unidirectional(1).
+        @details Generates ID based on stream counter, initiator, and direction.
 
-        Returns:
-            int: The generated stream ID.
+        @param initiated_by Indicates whether the stream was initiated by 'client'(0) or 'server'(1).
+        @param direction Indicates whether the stream is bidirectional(0) or unidirectional(1).
+        @return The generated stream ID.
         """
         str_binary = bin(self._streams_counter)[Constants.TWO:]  # convert to binary string without prefix (index=2)
         str_binary += str(direction) + str(initiated_by)
@@ -72,12 +81,13 @@ class QuicConnection:
 
     def _add_stream(self, stream_id: int, initiated_by: bool, direction: bool):
         """
-        Add a new stream to the connection and initialize its statistics.
+        @brief Add a new stream to the connection.
 
-        Args:
-            stream_id (int): The ID of the stream to add.
-            initiated_by (bool): Indicates if the stream was initiated by the server.
-            direction (bool): Indicates if the stream is unidirectional.
+        @details Initializes the stream's statistics.
+
+        @param stream_id The ID of the stream to add.
+        @param initiated_by Indicates if the stream was initiated by the server.
+        @param direction Indicates if the stream is unidirectional.
         """
         self._streams[stream_id] = Stream(stream_id, initiated_by, direction)
         self._add_stream_to_stats_dict(stream_id)
@@ -85,22 +95,20 @@ class QuicConnection:
 
     def _add_stream_to_stats_dict(self, stream_id: int):
         """
-        Initialize statistics for a new stream.
+        @brief Initialize statistics for a new stream.
 
-        Args:
-            stream_id (int): The ID of the stream.
+        @param stream_id The ID of the stream.
         """
         self._stats_dict[stream_id] = {'total_bytes': Constants.ZERO, 'total_time': time.time(), 'total_packets': set()}
 
     def _get_stream_by_id(self, stream_id: int) -> 'Stream':
         """
-        Retrieve a stream by its ID, creating it if necessary.
+        @brief Retrieve a stream by its ID.
 
-        Args:
-            stream_id (int): The ID of the stream to retrieve.
+        @details Creates the stream if necessary.
 
-        Returns:
-            Stream: The retrieved or newly created stream.
+        @param stream_id The ID of the stream to retrieve.
+        @return The retrieved or newly created stream.
         """
         if not self._is_stream_id_in_dict(stream_id):
             self._add_stream(stream_id, Stream.is_s_init_by_sid(stream_id), Stream.is_uni_by_sid(stream_id))
@@ -108,24 +116,20 @@ class QuicConnection:
 
     def _remove_stream(self, stream_id: int) -> 'Stream':
         """
-        Remove a stream from the active streams list and the streams dictionary.
+        @brief Remove a stream from the active streams list and the streams dictionary.
 
-        Args:
-            stream_id (int): The ID of the stream to remove.
-
-        Returns:
-            Stream: The removed stream.
+        @param stream_id The ID of the stream to remove.
+        @return The removed stream.
         """
         self._active_streams_ids.remove(stream_id)
         return self._streams.pop(stream_id)
 
     def add_file_to_stream(self, stream_id: int, path: str):
         """
-        Add a file's content to a stream.
+        @brief Add a file's content to a stream.
 
-        Args:
-            stream_id (int): The ID of the stream to add the file to.
-            path (str): The file path.
+        @param stream_id The ID of the stream to add the file to.
+        @param path The file path.
         """
         with open(path, 'rb') as file:
             data = file.read()
@@ -133,11 +137,10 @@ class QuicConnection:
 
     def _add_data_to_stream(self, stream_id: int, data: bytes):
         """
-        Add data to a specific stream's buffer.
+        @brief Add data to a specific stream's buffer.
 
-        Args:
-            stream_id (int): The ID of the stream.
-            data (bytes): The data to add.
+        @param stream_id The ID of the stream.
+        @param data The data to add.
         """
         stream = self._get_stream_by_id(stream_id)
         stream.add_data_to_stream(data=data)
@@ -145,29 +148,27 @@ class QuicConnection:
 
     def _add_active_stream_id(self, stream_id: int):
         """
-        Mark a stream as active by adding its ID to the active streams list.
+        @brief Mark a stream as active.
 
-        Args:
-            stream_id (int): The ID of the stream to mark as active.
+        @details Adds stream ID to the active streams list.
+
+        @param stream_id The ID of the stream to mark as active.
         """
         if stream_id not in self._active_streams_ids:
             self._active_streams_ids.append(stream_id)
 
     def _is_stream_id_in_dict(self, stream_id: int) -> bool:
         """
-        Check if a stream ID exists in the streams dict.
+        @brief Check if a stream ID exists in the streams dict.
 
-        Args:
-            stream_id (int): The ID of the stream to check.
-
-        Returns:
-            bool: True if the stream ID exists, False otherwise.
+        @param stream_id The ID of the stream to check.
+        @return True if the stream ID exists, False otherwise.
         """
         return stream_id in self._streams.keys()
 
     def _set_start_time(self):
         """
-        Set the start time for all streams in the connection.
+        @brief Set the start time for all streams in the connection.
         """
         start_time = time.time()
         for stream in self._stats_dict.values():
@@ -175,7 +176,7 @@ class QuicConnection:
 
     def send_packets(self):
         """
-        Continuously create and send packets until all streams are finished.
+        @brief Continuously create and send packets until all streams are finished.
         """
         self._send_packet_size()
         start_time = time.time()
@@ -188,10 +189,9 @@ class QuicConnection:
 
     def _send_packet_size(self):
         """
-        Send the packet size to the remote peer.
+        @brief Send the packet size to the remote peer.
 
-        Returns:
-            bool: True if the packet size was sent successfully, False otherwise.
+        @return True if the packet size was sent successfully, False otherwise.
         """
         self._packet_size = PACKET_SIZE
         packet_size_bytes = self._packet_size.to_bytes(Constants.PACKET_SIZE_BYTES, 'big')
@@ -199,12 +199,13 @@ class QuicConnection:
 
     def _create_packet(self) -> Packet:
         """
-        Create a packet containing frames from the streams.
-        1. generate frames for each stream
-        2. assemble SOME of them and add to packet payload
-        3. add packet to pending packets
-        Returns:
-            Packet: The created packet with frames from different streams.
+        @brief Create a packet containing frames from the streams.
+
+        @details 1. Generate frames for each stream
+                 2. Assemble SOME of them and add to packet payload
+                 3. Add packet to pending packets
+
+        @return The created packet with frames from different streams.
         """
         self._generate_streams_frames()
         remaining_space = self._packet_size
@@ -233,38 +234,38 @@ class QuicConnection:
 
     def _generate_streams_frames(self):
         """
-        Generate frames for each active stream.
+        @brief Generate frames for each active stream.
         """
         for stream_id in self._active_streams_ids:
             self._get_stream_by_id(stream_id).generate_stream_frames(PACKET_SIZE // Constants.FRAMES_IN_PACKET)
 
     def _get_stream_from_active_streams(self) -> Stream | None:
         """
-        Retrieve a stream from the list of active streams.
+        @brief Retrieve a stream from the list of active streams.
 
-        Returns:
-            Stream: The retrieved stream.
+        @return The retrieved stream, or None if no active streams.
         """
         if not self._active_streams_ids:
             self._idle = False
-            return
+            return None
         try:
-            return self._streams[random.choice(self._active_streams_ids)]  # return the first stream to be activated
+            return self._streams[random.choice(self._active_streams_ids)]  # return a random stream
         except IndexError:
             print("No more streams!")
+            return None
 
     def _send_packet(self, packet: bytes):
         """
-        Send a packet to the remote address.
+        @brief Send a packet to the remote address.
 
-        Args:
-            packet (Packet): The packet to send.
+        @param packet The packet to send.
+        @return True if the packet was sent successfully, False otherwise.
         """
         return self._socket.sendto(packet, self._remote_addr) > 0
 
     def receive_packets(self):
         """
-        Continuously receive packets until the connection is closed or a timeout occurs.
+        @brief Continuously receive packets until the connection is closed or a timeout occurs.
         """
         self._socket.settimeout(Constants.TIMEOUT)
         while self._idle:
@@ -276,9 +277,9 @@ class QuicConnection:
 
     def _receive_packet(self):
         """
-        Receive a packet and process it.
+        @brief Receive a packet and process it.
 
-        If the socket times out while waiting for a packet, the connection will be closed.
+        @details If socket times out, the connection will be closed.
         """
         try:
             if self._packet_size == Constants.ZERO:
@@ -296,24 +297,25 @@ class QuicConnection:
             self._close_connection()
 
     def _increment_received_packets_counter(self):
+        """
+        @brief Increment the counter for received packets.
+        """
         self._received_packets_counter += Constants.ONE
 
     def _handle_received_packet_size(self, packet_size: bytes):
         """
-        Handle the reception of the packet size from the peer.
+        @brief Handle the reception of the packet size from the peer.
 
-        Args:
-            packet_size (bytes): The received packet size in bytes.
+        @param packet_size The received packet size in bytes.
         """
         print(f'Packet size received: {int.from_bytes(packet_size, "big")}')
         self._packet_size = int.from_bytes(packet_size, 'big')
 
     def _handle_received_packet(self, packet: bytes):
         """
-        Handle the reception of a packet and its frames.
+        @brief Handle the reception of a packet and its frames.
 
-        Args:
-            packet (bytes): The received packet in bytes.
+        @param packet The received packet in bytes.
         """
         unpacked_packet = Packet.unpack(packet)
         frames_in_packet = unpacked_packet.payload
@@ -324,7 +326,6 @@ class QuicConnection:
                 self._get_stream_by_id(stream_id).receive_frame(frame)
                 self._stats_dict[stream_id]['total_bytes'] += len(frame.encode())
                 self._stats_dict[stream_id]['total_packets'].add(unpacked_packet.packet_number)
-                # self.streams_packets_dict[stream_id].add(unpacked_packet.packet_number)
                 if self._get_stream_by_id(stream_id).is_finished():
                     self._write_stream(stream_id)
             except Exception as e:
@@ -332,13 +333,10 @@ class QuicConnection:
 
     def _write_stream(self, stream_id: int) -> bool:
         """
-        Write the received data of a stream to a file.
+        @brief Write the received data of a stream to a file.
 
-        Args:
-            stream_id (int): The ID of the stream whose data should be written.
-
-        Returns:
-            bool: True if the data was written successfully, False otherwise.
+        @param stream_id The ID of the stream whose data should be written.
+        @return True if the data was written successfully, False otherwise.
         """
         stream = self._remove_stream(stream_id)
         data = stream.get_data_received()
@@ -354,7 +352,7 @@ class QuicConnection:
 
     def _close_connection(self):
         """
-        Close the connection, socket, and print the statistics.
+        @brief Close the connection, socket, and print the statistics.
         """
         self._total_time -= time.time()
         self._idle = False
@@ -363,7 +361,7 @@ class QuicConnection:
 
     def _print_stats(self):
         """
-        Print the statistics for all active streams in the connection.
+        @brief Print the statistics for all active streams in the connection.
         """
         self._total_time = abs(self._total_time)
         _bytes = 0
@@ -383,8 +381,3 @@ class QuicConnection:
         print(
             f'------- rate {float(self._received_packets_counter) / self._total_time} packets/second, {self._received_packets_counter} packets total')
         print(f'total time elapsed: {self._total_time} seconds')
-
-
-# Example usage
-if __name__ == "__main__":
-    pass
